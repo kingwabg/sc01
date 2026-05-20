@@ -1587,6 +1587,7 @@ function inlineStylesForRhwpImport(sourceHtml: string) {
 }
 
 const RHWP_TABLE_POSITION_STORAGE_KEY = 'seochang.rhwp.tablePosition.v1';
+const RHWP_HWP_UNITS_PER_MM = 7200 / 25.4;
 const DEFAULT_RHWP_TABLE_POSITION: Required<HwpxTablePositionOptions> = {
   mode: 'fixed',
   horizontalMm: 0,
@@ -1629,11 +1630,13 @@ function RhwpEditorPane({
     destroy?: () => void;
     readonly element?: HTMLIFrameElement;
     loadFile?: (data: ArrayBuffer | Uint8Array, fileName?: string) => Promise<{ pageCount?: number }>;
-    _request?: (method: string, params?: Record<string, unknown>) => Promise<{ pageCount?: number }>;
+    _request?: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown> & { pageCount?: number }>;
   };
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<RhwpEditorInstance | null>(null);
   const loadSeqRef = useRef(0);
+  const documentLoadedRef = useRef(false);
+  const tablePositionRef = useRef<Required<HwpxTablePositionOptions>>(DEFAULT_RHWP_TABLE_POSITION);
   const [showHtmlPanel, setShowHtmlPanel] = useState(false);
   const [showPositionPanel, setShowPositionPanel] = useState(false);
   const [draftHtml, setDraftHtml] = useState(html);
@@ -1654,6 +1657,7 @@ function RhwpEditorPane({
   };
 
   useEffect(() => {
+    tablePositionRef.current = tablePosition;
     try {
       window.localStorage.setItem(RHWP_TABLE_POSITION_STORAGE_KEY, JSON.stringify(tablePosition));
     } catch {
@@ -1700,7 +1704,7 @@ function RhwpEditorPane({
     method: string,
     params: Record<string, unknown>,
     timeoutMs = 60000
-  ): Promise<{ pageCount?: number; timedOut?: boolean }> => {
+  ): Promise<Record<string, unknown> & { pageCount?: number; timedOut?: boolean }> => {
     const iframe = editor.element;
     const targetWindow = iframe?.contentWindow;
     if (!targetWindow) {
@@ -1717,9 +1721,11 @@ function RhwpEditorPane({
         window.clearTimeout(timer);
       };
       const handleMessage = (event: MessageEvent) => {
-        if (event.source !== targetWindow) return;
         const data = event.data;
         if (!data || data.type !== 'rhwp-response' || data.id !== id) return;
+        if (event.source !== targetWindow) {
+          console.info('RHWP response accepted from alternate window reference', { method, id });
+        }
         finished = true;
         cleanup();
         if (data.error) {
@@ -1732,12 +1738,136 @@ function RhwpEditorPane({
         if (finished) return;
         finished = true;
         cleanup();
+        console.warn('RHWP request timed out', { method, id, timeoutMs });
         resolve({ timedOut: true });
       }, timeoutMs);
 
       window.addEventListener('message', handleMessage);
       targetWindow.postMessage({ type: 'rhwp-request', id, method, params }, '*');
     });
+  };
+
+  const waitForRhwpReady = async (editor: RhwpEditorInstance, timeoutMs = 30000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const result = await requestRhwpEditor(editor, 'ready', {}, 1500);
+        if (!result?.timedOut) return result;
+      } catch (error) {
+        console.warn('RHWP ready polling failed', error);
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
+    throw new Error('RHWP 에디터 준비 시간이 초과되었습니다.');
+  };
+
+  const createEmbeddedRhwpEditor = (
+    container: HTMLDivElement,
+    studioUrl: string
+  ): Promise<RhwpEditorInstance> => new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.src = studioUrl;
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.allow = 'clipboard-read; clipboard-write';
+
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('RHWP iframe 로드 시간이 초과되었습니다.'));
+    }, 20000);
+
+    iframe.addEventListener('load', () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve({
+        element: iframe,
+        destroy: () => iframe.remove()
+      });
+    }, { once: true });
+    iframe.addEventListener('error', () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      reject(new Error('RHWP iframe을 불러오지 못했습니다.'));
+    }, { once: true });
+
+    container.appendChild(iframe);
+  });
+
+  const navigateRhwpIframe = (
+    iframe: HTMLIFrameElement,
+    url: string,
+    timeoutMs = 30000
+  ): Promise<void> => new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('RHWP 문서 로드 시간이 초과되었습니다.'));
+    }, timeoutMs);
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      iframe.removeEventListener('load', handleLoad);
+      iframe.removeEventListener('error', handleError);
+    };
+    const handleLoad = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const handleError = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('RHWP 문서를 불러오지 못했습니다.'));
+    };
+    iframe.addEventListener('load', handleLoad, { once: true });
+    iframe.addEventListener('error', handleError, { once: true });
+    iframe.src = url;
+  });
+
+  const createRhwpNativeSessionUrl = (
+    sourceHtml: string,
+    fileName = '운영일지.hwp',
+  ) => {
+    const key = `seochang-rhwp-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    const position = tablePositionRef.current;
+    window.sessionStorage.setItem(key, JSON.stringify({
+      html: sourceHtml,
+      fileName,
+      horizontalHwp: Math.round(position.horizontalMm * RHWP_HWP_UNITS_PER_MM),
+      verticalHwp: Math.round(position.verticalMm * RHWP_HWP_UNITS_PER_MM),
+    }));
+    const loadUrl = new URL('/rhwp-studio/index.html', window.location.origin);
+    loadUrl.searchParams.set('embed', '1');
+    loadUrl.searchParams.set('v', String(Date.now()));
+    loadUrl.searchParams.set('seochangNativeHtmlKey', key);
+    loadUrl.searchParams.set('autoFixValidation', '1');
+    loadUrl.searchParams.set('suppressValidationModal', '1');
+    loadUrl.searchParams.set('suppressHwpxSaveNotice', '1');
+    return loadUrl;
+  };
+
+  const waitForRhwpTables = async (editor: RhwpEditorInstance, timeoutMs = 45000) => {
+    const deadline = Date.now() + timeoutMs;
+    let lastResult: Record<string, unknown> & { pageCount?: number; timedOut?: boolean } = {};
+    while (Date.now() < deadline) {
+      try {
+        const result = await requestRhwpEditor(editor, 'getTableLayout', {}, 5000);
+        lastResult = result;
+        const tables = Array.isArray(result.tables) ? result.tables : [];
+        if (tables.length > 0) return result;
+      } catch (error) {
+        console.warn('RHWP table layout polling failed', error);
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+    }
+    return lastResult;
   };
 
   const fitRhwpEditorToWidth = (editor: RhwpEditorInstance) => {
@@ -1750,35 +1880,90 @@ function RhwpEditorPane({
     }, 350);
   };
 
+  const toRhwpTableMoveParams = (position: Required<HwpxTablePositionOptions>, reset = false) => ({
+    mode: position.mode,
+    horizontalHwp: Math.round(position.horizontalMm * RHWP_HWP_UNITS_PER_MM),
+    verticalHwp: Math.round(position.verticalMm * RHWP_HWP_UNITS_PER_MM),
+    reset
+  });
+
+  const applyRhwpTablePosition = async (
+    editor: RhwpEditorInstance,
+    position: Required<HwpxTablePositionOptions>,
+    reset = false
+  ) => {
+    const result = await requestRhwpEditor(
+      editor,
+      'moveTables',
+      toRhwpTableMoveParams(position, reset),
+      15000
+    );
+    if (result?.timedOut) {
+      setStatus('표 위치 적용이 지연되고 있습니다.');
+      return result;
+    }
+    const count = typeof result.count === 'number' ? result.count : 0;
+    const tableCount = typeof result.tableCount === 'number' ? result.tableCount : count;
+    console.info('RHWP table position result', result);
+    if (tableCount === 0) {
+      setStatus('RHWP 문서에서 이동할 표를 찾지 못했습니다.');
+    } else if (count > 0 && !reset) {
+      setStatus(
+        `표 위치 적용 완료 · 표 ${count}개 · 좌우 ${position.horizontalMm}mm / 상하 ${position.verticalMm}mm`
+      );
+    } else if (!reset) {
+      setStatus(`표 위치 변경 없음 · 표 ${tableCount}개 감지`);
+    }
+    fitRhwpEditorToWidth(editor);
+    return result;
+  };
+
   const loadTemplateIntoEditor = async (editor: RhwpEditorInstance, sourceHtml: string) => {
     const seq = ++loadSeqRef.current;
+    documentLoadedRef.current = false;
     const rhwpHtml = inlineStylesForRhwpImport(sourceHtml);
-    setStatus('운영일지를 HWPX 문서로 변환하는 중입니다.');
-    const bytes = await createHwpxBytesFromHtml(rhwpHtml, {
-      preferNative: false,
-      allowFallback: true,
-      tablePosition
-    });
-
-    if (seq !== loadSeqRef.current) return;
-    setStatus('RHWP 에디터에 운영일지를 여는 중입니다.');
+    setStatus('RHWP 에디터에 운영일지 표를 만드는 중입니다.');
     let result: { pageCount?: number; timedOut?: boolean } | undefined;
     if (editor.element) {
-      result = await requestRhwpEditor(editor, 'loadFile', {
-        data: Array.from(bytes),
-        fileName: '운영일지.hwpx',
-        skipUnsavedGuard: true,
-        autoFixValidation: true,
-        suppressValidationModal: true
-      });
+      try {
+        const loadUrl = createRhwpNativeSessionUrl(rhwpHtml, '운영일지.hwp');
+        await navigateRhwpIframe(editor.element, loadUrl.toString(), 60000);
+        result = {};
+      } catch (nativeError) {
+        console.warn('RHWP native table load failed, falling back to HWPX load.', nativeError);
+        if (seq !== loadSeqRef.current) return;
+        setStatus('RHWP 표 생성 실패 · HWPX 방식으로 다시 여는 중입니다.');
+        const bytes = await createHwpxBytesFromHtml(rhwpHtml, {
+          preferNative: false,
+          allowFallback: true
+        });
+        if (seq !== loadSeqRef.current) return;
+        const fileBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        const blobUrl = URL.createObjectURL(new Blob([fileBuffer], { type: 'application/hwp+zip' }));
+        const loadUrl = new URL('/rhwp-studio/index.html', window.location.origin);
+        loadUrl.searchParams.set('embed', '1');
+        loadUrl.searchParams.set('v', String(Date.now()));
+        loadUrl.searchParams.set('url', blobUrl);
+        loadUrl.searchParams.set('filename', '운영일지.hwpx');
+        loadUrl.searchParams.set('autoFixValidation', '1');
+        loadUrl.searchParams.set('suppressValidationModal', '1');
+        loadUrl.searchParams.set('suppressHwpxSaveNotice', '1');
+        try {
+          await navigateRhwpIframe(editor.element, loadUrl.toString());
+          result = { pageCount: 1 };
+        } finally {
+          window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        }
+      }
     } else if (editor.loadFile) {
+      const bytes = await createHwpxBytesFromHtml(rhwpHtml, {
+        preferNative: false,
+        allowFallback: true
+      });
       result = await editor.loadFile(bytes, '운영일지.hwpx');
     }
     if (seq !== loadSeqRef.current) return;
-    if (result?.timedOut) {
-      setStatus('RHWP 검증창이 뜬 경우 확인을 눌러주세요. 문서는 계속 로드 중입니다.');
-      return;
-    }
+    documentLoadedRef.current = true;
     fitRhwpEditorToWidth(editor);
     setStatus(`운영일지 템플릿 로드 완료${result?.pageCount ? ` · ${result.pageCount}쪽` : ''}`);
   };
@@ -1796,29 +1981,17 @@ function RhwpEditorPane({
         setStatus('RHWP 캐시를 정리하는 중입니다.');
         await resetRhwpEmbeddedCaches();
         if (cancelled || !hostRef.current) return;
-        const module = await import('@rhwp/editor');
-        if (cancelled || !hostRef.current) return;
-        fallbackTimer = window.setTimeout(() => {
-          if (!cancelled) {
-            setStatus('RHWP iframe 탑재 완료');
-          }
-        }, 5000);
         const studioUrl = new URL('/rhwp-studio/index.html', window.location.origin);
         studioUrl.searchParams.set('embed', '1');
         studioUrl.searchParams.set('v', String(Date.now()));
-        const editor = await module.createEditor(hostRef.current, {
-          width: '100%',
-          height: '100%',
-          studioUrl: studioUrl.toString()
-        });
-        if (fallbackTimer) {
-          window.clearTimeout(fallbackTimer);
-        }
+        const editor = await createEmbeddedRhwpEditor(hostRef.current, studioUrl.toString());
         if (cancelled) {
-          editor.destroy();
+          editor.destroy?.();
           return;
         }
         editorRef.current = editor;
+        setStatus('RHWP iframe 탑재 완료 · 문서를 준비하는 중입니다.');
+        if (cancelled) return;
         await loadTemplateIntoEditor(editor, html);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -1844,7 +2017,22 @@ function RhwpEditorPane({
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`운영일지 템플릿 로드 실패: ${message}`);
     });
-  }, [html, tablePosition]);
+  }, [html]);
+
+  useEffect(() => {
+    if (!editorRef.current || !documentLoadedRef.current) return;
+    if (editorRef.current.element) {
+      loadTemplateIntoEditor(editorRef.current, html).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`표 위치 적용 실패: ${message}`);
+      });
+      return;
+    }
+    applyRhwpTablePosition(editorRef.current, tablePosition, false).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`표 위치 적용 실패: ${message}`);
+    });
+  }, [tablePosition]);
 
   return (
     <div className="rhwp-editor-shell rhwp-library-shell">
