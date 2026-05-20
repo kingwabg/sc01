@@ -38,6 +38,11 @@ if (-not $selectedNode) {
 
 Write-Host "Using Node runtime: $selectedNode"
 
+& $selectedNode ".\scripts\check-rhwp-boundary-guard.mjs"
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
+
 & $selectedNode ".\node_modules\typescript\bin\tsc"
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE

@@ -28,6 +28,13 @@ npm run build
 npm run tauri -- build --debug
 ```
 
+`npm run build`는 RHWP 표 경계 가드를 먼저 확인합니다. 이 가드는 운영일지 표가 드래그, 방향키 이동, 표 크기 조절 중에도 편집용지 여백 밖으로 나가지 않게 막는 안전장치입니다. RHWP 라이브러리나 내장 번들을 갱신했다면 먼저 아래 명령으로 가드가 살아 있는지 확인하세요.
+
+```powershell
+cd desktop-app
+npm run rhwp:guard
+```
+
 생성 위치:
 
 - 실행 파일: `src-tauri/target/debug/seochang_operations_desktop.exe`

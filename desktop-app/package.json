@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-frontend.ps1",
     "preview": "vite preview",
+    "rhwp:guard": "node ./scripts/check-rhwp-boundary-guard.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
