@@ -3,7 +3,6 @@ import type { MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'r
 import type { AttendanceEntry, Child, ChildAttendanceEntry, DashboardSnapshot, ImportSummary, InitialImportPayload, JournalEntry, JournalTemplate, Person } from './types';
 import { deleteChildAttendanceEntry, getDataProviderLabel, loadDashboardSnapshot, loadJournalTemplates, rebuildDedupedChildrenFromLocalData, replaceLocalDatabaseFromImport, saveChildAttendanceEntries, saveChildRecord, saveGeneratedJournals, saveJournalEntry, saveJournalTemplate } from './data/dataProvider';
 import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport';
-import type { HwpxTablePositionMode, HwpxTablePositionOptions } from './data/hwpxExport';
 import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplate } from './data/journalTemplates';
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 
@@ -1586,59 +1585,6 @@ function inlineStylesForRhwpImport(sourceHtml: string) {
   }
 }
 
-const RHWP_TABLE_POSITION_STORAGE_KEY = 'seochang.rhwp.tablePosition.v1';
-const RHWP_HWP_UNITS_PER_MM = 7200 / 25.4;
-const RHWP_PRINTABLE_TABLE_WIDTH_MM = 53292 / RHWP_HWP_UNITS_PER_MM;
-const RHWP_TABLE_WIDTH_MIN_PERCENT = 75;
-const RHWP_TABLE_WIDTH_MAX_PERCENT = 100;
-const DEFAULT_RHWP_TABLE_POSITION: Required<HwpxTablePositionOptions> = {
-  mode: 'fixed',
-  horizontalMm: 0,
-  verticalMm: 0,
-  widthPercent: 100
-};
-
-function clampRhwpNumber(value: number, min: number, max: number, fallback = 0) {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(value * 10) / 10));
-}
-
-function getRhwpHorizontalAvailableMm(widthPercent: number) {
-  const normalizedWidth = clampRhwpNumber(
-    Number(widthPercent),
-    RHWP_TABLE_WIDTH_MIN_PERCENT,
-    RHWP_TABLE_WIDTH_MAX_PERCENT,
-    RHWP_TABLE_WIDTH_MAX_PERCENT
-  );
-  return Math.round((RHWP_PRINTABLE_TABLE_WIDTH_MM * (1 - normalizedWidth / 100)) * 10) / 10;
-}
-
-function normalizeRhwpTablePosition(value: Partial<HwpxTablePositionOptions> | null | undefined): Required<HwpxTablePositionOptions> {
-  const widthPercent = clampRhwpNumber(
-    Number(value?.widthPercent ?? 100),
-    RHWP_TABLE_WIDTH_MIN_PERCENT,
-    RHWP_TABLE_WIDTH_MAX_PERCENT,
-    100
-  );
-  const horizontalLimit = getRhwpHorizontalAvailableMm(widthPercent);
-  return {
-    mode: value?.mode === 'edit' ? 'edit' : 'fixed',
-    horizontalMm: clampRhwpNumber(Number(value?.horizontalMm ?? 0), 0, horizontalLimit),
-    verticalMm: clampRhwpNumber(Number(value?.verticalMm ?? 0), -10, 30),
-    widthPercent
-  };
-}
-
-function loadRhwpTablePosition(): Required<HwpxTablePositionOptions> {
-  if (typeof window === 'undefined') return DEFAULT_RHWP_TABLE_POSITION;
-  try {
-    const saved = window.localStorage.getItem(RHWP_TABLE_POSITION_STORAGE_KEY);
-    return saved ? normalizeRhwpTablePosition(JSON.parse(saved)) : DEFAULT_RHWP_TABLE_POSITION;
-  } catch {
-    return DEFAULT_RHWP_TABLE_POSITION;
-  }
-}
-
 function RhwpEditorPane({
   html,
   onHtmlCommit,
@@ -1657,35 +1603,10 @@ function RhwpEditorPane({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<RhwpEditorInstance | null>(null);
   const loadSeqRef = useRef(0);
-  const documentLoadedRef = useRef(false);
-  const tablePositionRef = useRef<Required<HwpxTablePositionOptions>>(DEFAULT_RHWP_TABLE_POSITION);
   const [showHtmlPanel, setShowHtmlPanel] = useState(false);
-  const [showPositionPanel, setShowPositionPanel] = useState(false);
   const [draftHtml, setDraftHtml] = useState(html);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('RHWP 에디터를 준비하는 중입니다.');
-  const [tablePosition, setTablePosition] = useState<Required<HwpxTablePositionOptions>>(() => loadRhwpTablePosition());
-
-  const updateTablePosition = (patch: Partial<HwpxTablePositionOptions>) => {
-    setTablePosition((current) => normalizeRhwpTablePosition({ ...current, ...patch }));
-  };
-
-  const shiftTablePosition = (axis: 'horizontalMm' | 'verticalMm', amount: number) => {
-    setTablePosition((current) => normalizeRhwpTablePosition({ ...current, [axis]: current[axis] + amount }));
-  };
-
-  const resetTablePosition = () => {
-    setTablePosition(DEFAULT_RHWP_TABLE_POSITION);
-  };
-
-  useEffect(() => {
-    tablePositionRef.current = tablePosition;
-    try {
-      window.localStorage.setItem(RHWP_TABLE_POSITION_STORAGE_KEY, JSON.stringify(tablePosition));
-    } catch {
-      // localStorage가 막힌 환경에서는 이번 세션에서만 유지합니다.
-    }
-  }, [tablePosition]);
 
   const resetRhwpEmbeddedCaches = async () => {
     try {
@@ -1899,48 +1820,8 @@ function RhwpEditorPane({
     }, 350);
   };
 
-  const toRhwpTableMoveParams = (position: Required<HwpxTablePositionOptions>, reset = false) => ({
-    mode: position.mode,
-    horizontalHwp: Math.round(position.horizontalMm * RHWP_HWP_UNITS_PER_MM),
-    verticalHwp: Math.round(position.verticalMm * RHWP_HWP_UNITS_PER_MM),
-    widthPercent: position.widthPercent,
-    reset
-  });
-
-  const applyRhwpTablePosition = async (
-    editor: RhwpEditorInstance,
-    position: Required<HwpxTablePositionOptions>,
-    reset = false
-  ) => {
-    const result = await requestRhwpEditor(
-      editor,
-      'moveTables',
-      toRhwpTableMoveParams(position, reset),
-      15000
-    );
-    if (result?.timedOut) {
-      setStatus('표 위치 적용이 지연되고 있습니다.');
-      return result;
-    }
-    const count = typeof result.count === 'number' ? result.count : 0;
-    const tableCount = typeof result.tableCount === 'number' ? result.tableCount : count;
-    console.info('RHWP table position result', result);
-    if (tableCount === 0) {
-      setStatus('RHWP 문서에서 이동할 표를 찾지 못했습니다.');
-    } else if (count > 0 && !reset) {
-      setStatus(
-        `표 조정 완료 · 표 ${count}개 · 너비 ${position.widthPercent}% · 좌우 ${position.horizontalMm}mm / 상하 ${position.verticalMm}mm`
-      );
-    } else if (!reset) {
-      setStatus(`표 위치 변경 없음 · 표 ${tableCount}개 감지`);
-    }
-    fitRhwpEditorToWidth(editor);
-    return result;
-  };
-
   const loadTemplateIntoEditor = async (editor: RhwpEditorInstance, sourceHtml: string) => {
     const seq = ++loadSeqRef.current;
-    documentLoadedRef.current = false;
     const rhwpHtml = inlineStylesForRhwpImport(sourceHtml);
     setStatus('RHWP 에디터에 운영일지 표를 만드는 중입니다.');
     let result: { pageCount?: number; timedOut?: boolean } | undefined;
@@ -1950,7 +1831,6 @@ function RhwpEditorPane({
         await navigateRhwpIframe(editor.element, loadUrl.toString(), 60000);
         await waitForRhwpTables(editor, 45000);
         await new Promise((resolve) => window.setTimeout(resolve, 350));
-        await applyRhwpTablePosition(editor, tablePositionRef.current, true);
         result = {};
       } catch (nativeError) {
         console.warn('RHWP native table load failed, falling back to HWPX load.', nativeError);
@@ -1986,7 +1866,6 @@ function RhwpEditorPane({
       result = await editor.loadFile(bytes, '운영일지.hwpx');
     }
     if (seq !== loadSeqRef.current) return;
-    documentLoadedRef.current = true;
     fitRhwpEditorToWidth(editor);
     setStatus(`운영일지 템플릿 로드 완료${result?.pageCount ? ` · ${result.pageCount}쪽` : ''}`);
   };
@@ -2042,14 +1921,6 @@ function RhwpEditorPane({
     });
   }, [html]);
 
-  useEffect(() => {
-    if (!editorRef.current || !documentLoadedRef.current) return;
-    applyRhwpTablePosition(editorRef.current, tablePosition, false).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`표 위치 적용 실패: ${message}`);
-    });
-  }, [tablePosition]);
-
   return (
     <div className="rhwp-editor-shell rhwp-library-shell">
       <div className="rhwp-library-head">
@@ -2058,13 +1929,6 @@ function RhwpEditorPane({
           <span>{status}</span>
         </div>
         <div className="rhwp-library-actions">
-          <button
-            type="button"
-            className={showPositionPanel ? 'active' : ''}
-            onClick={() => setShowPositionPanel((current) => !current)}
-          >
-            표 위치
-          </button>
           <button
             type="button"
             className={showHtmlPanel ? 'active' : ''}
@@ -2081,106 +1945,30 @@ function RhwpEditorPane({
         </div>
       </div>
 
-      {(showPositionPanel || showHtmlPanel) && (
+      {showHtmlPanel && (
         <div className="rhwp-library-tools">
-          {showPositionPanel && (
-            <div className="rhwp-table-position-panel">
-              <div className="rhwp-table-position-head">
-                <strong>표 크기/위치 조정</strong>
-                <span>
-                  {tablePosition.mode === 'fixed'
-                    ? '수동 조정 · 본문 여백 안에서만 이동'
-                    : '편집 이동 모드 · 본문 여백 안에서만 이동'}
-                </span>
-              </div>
-              <div className="rhwp-table-position-grid">
-                <div className="rhwp-position-stepper rhwp-position-size" aria-label="표 너비 조정">
-                  <span>표 너비</span>
-                  <button type="button" onClick={() => updateTablePosition({ widthPercent: tablePosition.widthPercent - 5 })}>작게</button>
-                  <input
-                    type="number"
-                    min={RHWP_TABLE_WIDTH_MIN_PERCENT}
-                    max={RHWP_TABLE_WIDTH_MAX_PERCENT}
-                    step="1"
-                    value={tablePosition.widthPercent}
-                    onChange={(event) => updateTablePosition({ widthPercent: Number(event.target.value) })}
-                  />
-                  <button type="button" onClick={() => updateTablePosition({ widthPercent: tablePosition.widthPercent + 5 })}>크게</button>
-                  <em>%</em>
-                </div>
-                <div className="rhwp-position-stepper" aria-label="가로 위치 조정">
-                  <span>좌우</span>
-                  <button type="button" onClick={() => shiftTablePosition('horizontalMm', -1)}>왼쪽</button>
-                  <input
-                    type="number"
-                    min={0}
-                    max={getRhwpHorizontalAvailableMm(tablePosition.widthPercent)}
-                    step="0.5"
-                    value={tablePosition.horizontalMm}
-                    onChange={(event) => updateTablePosition({ horizontalMm: Number(event.target.value) })}
-                  />
-                  <button type="button" onClick={() => shiftTablePosition('horizontalMm', 1)}>오른쪽</button>
-                  <em>mm</em>
-                </div>
-                <div className="rhwp-position-stepper" aria-label="세로 위치 조정">
-                  <span>상하</span>
-                  <button type="button" onClick={() => shiftTablePosition('verticalMm', -1)}>위</button>
-                  <input
-                    type="number"
-                    min="-10"
-                    max="30"
-                    step="0.5"
-                    value={tablePosition.verticalMm}
-                    onChange={(event) => updateTablePosition({ verticalMm: Number(event.target.value) })}
-                  />
-                  <button type="button" onClick={() => shiftTablePosition('verticalMm', 1)}>아래</button>
-                  <em>mm</em>
-                </div>
-                <label className="rhwp-position-mode">
-                  <span>모드</span>
-                  <select
-                    value={tablePosition.mode}
-                    onChange={(event) => updateTablePosition({ mode: event.target.value as HwpxTablePositionMode })}
-                  >
-                    <option value="fixed">인쇄 고정</option>
-                    <option value="edit">편집 이동</option>
-                  </select>
-                </label>
-                <button type="button" className="rhwp-position-reset" onClick={resetTablePosition}>
-                  초기화
-                </button>
-              </div>
-              <p className="rhwp-position-hint">
-                좌우 이동 범위: 0mm ~ {getRhwpHorizontalAvailableMm(tablePosition.widthPercent)}mm
-                {tablePosition.widthPercent >= 100 ? ' · 표가 본문 폭을 꽉 채워 좌우 이동은 0mm입니다.' : ' · 표는 흰색 페이지의 본문 여백 안에서만 이동합니다.'}
-              </p>
+          <div className="rhwp-html-menu-panel rhwp-library-html-panel">
+            <div className="rhwp-html-menu-head">
+              <strong>HTML로 표 만들기</strong>
+              <span>붙여 넣은 HTML은 운영일지 템플릿 값으로 저장됩니다.</span>
             </div>
-          )}
-
-          {showHtmlPanel && (
-            <div className="rhwp-html-menu-panel rhwp-library-html-panel">
-              <div className="rhwp-html-menu-head">
-                <strong>HTML로 표 만들기</strong>
-                <span>붙여 넣은 HTML은 운영일지 템플릿 값으로 저장됩니다.</span>
-              </div>
-              <textarea
-                value={draftHtml}
-                onChange={(event) => {
-                  setDraftHtml(event.target.value);
-                  setDirty(true);
-                }}
-                spellCheck={false}
-              />
-              <div className="button-cluster">
-                <button type="button" onClick={() => applyHtmlDraft(defaultHtml || html)}>
-                  기본 템플릿 넣기
-                </button>
-                <button type="button" className="primary small" onClick={() => applyHtmlDraft()}>
-                  표 만들기
-                </button>
-              </div>
+            <textarea
+              value={draftHtml}
+              onChange={(event) => {
+                setDraftHtml(event.target.value);
+                setDirty(true);
+              }}
+              spellCheck={false}
+            />
+            <div className="button-cluster">
+              <button type="button" onClick={() => applyHtmlDraft(defaultHtml || html)}>
+                기본 템플릿 넣기
+              </button>
+              <button type="button" className="primary small" onClick={() => applyHtmlDraft()}>
+                표 만들기
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
 
