@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RHWP Table Feature Lab</title>
+<style>
+  body { margin: 0; font-family: "Malgun Gothic", sans-serif; background: #eef3fb; color: #111827; }
+  .lab { display: grid; grid-template-columns: 440px 1fr; height: 100vh; gap: 12px; padding: 12px; box-sizing: border-box; }
+  .panel { background: #fff; border: 1px solid #d7e0ee; border-radius: 14px; box-shadow: 0 10px 28px rgba(15, 23, 42, .08); overflow: hidden; }
+  .report { padding: 16px; overflow: auto; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: #64748b; font-size: 13px; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border-bottom: 1px solid #e5ebf5; padding: 9px 8px; text-align: left; vertical-align: top; }
+  th { background: #f7faff; color: #334155; position: sticky; top: 0; }
+  .ok { color: #047857; font-weight: 800; }
+  .warn { color: #b45309; font-weight: 800; }
+  .no { color: #b91c1c; font-weight: 800; }
+  .meta { margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 12px; white-space: pre-wrap; }
+  iframe { width: 100%; height: 100%; border: 0; background: white; }
+</style>
+<div class="lab">
+  <section class="panel report">
+    <h1>RHWP 표 기능 점검</h1>
+    <p>오른쪽 RHWP에 실제 네이티브 표를 넣고, API와 메뉴 상태를 분리해서 확인합니다.</p>
+    <table>
+      <thead><tr><th>기능</th><th>상태</th><th>근거</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="meta" class="meta">점검 준비 중...</div>
+  </section>
+  <section class="panel">
+    <iframe id="editor"></iframe>
+  </section>
+</div>
+<script>
+  const features = [
+    ['표 로드', 'warn', 'RHWP iframe 로딩 중'],
+    ['HTML 표 → 네이티브 표 변환', 'warn', 'getTableLayout 결과 대기'],
+    ['표 위치/크기 조회', 'warn', 'getTableLayout 결과 대기'],
+    ['HWPX 내보내기', 'warn', 'exportHwpx 결과 대기'],
+    ['HWP 내보내기', 'warn', 'exportHwp 결과 대기'],
+    ['표 만들기 UI', 'ok', '상단 표 버튼과 격자 UI 확인됨'],
+    ['셀 내용/스타일 반영', 'ok', '텍스트, 배경, 테두리, 열 너비 반영됨'],
+    ['셀 내부 포커스', 'no', '표를 클릭해도 현재 커서가 셀 내부 상태로 전환되지 않음'],
+    ['표/셀 속성', 'no', '셀 내부 포커스가 잡히지 않아 메뉴 비활성'],
+    ['줄/칸 추가', 'no', '셀 내부 포커스가 잡히지 않아 메뉴 비활성'],
+    ['줄/칸 삭제', 'no', '셀 내부 포커스가 잡히지 않아 메뉴 비활성'],
+    ['셀 병합', 'no', 'F5 셀 선택 모드 진입/범위 선택이 먼저 필요'],
+    ['셀 나누기', 'no', '셀 내부 포커스가 잡히지 않아 메뉴 비활성'],
+    ['셀 높이/너비 같게', 'no', '셀 내부 포커스가 잡히지 않아 메뉴 비활성'],
+    ['계산식', 'no', '숫자 셀 + 셀 내부 포커스가 필요하지만 현재 메뉴 비활성']
+  ];
+  function render() {
+    rows.innerHTML = features.map(([name, state, note]) =>
+      `<tr><td>${name}</td><td class="${state}">${state === 'ok' ? '가능' : state === 'no' ? '불가' : '점검중'}</td><td>${note}</td></tr>`
+    ).join('');
+  }
+  function setFeature(name, state, note) {
+    const item = features.find(row => row[0] === name);
+    if (item) { item[1] = state; item[2] = note; render(); }
+  }
+  function request(method, params, timeout = 20000) {
+    return new Promise(resolve => {
+      const id = 'lab-' + Math.random().toString(36).slice(2);
+      const timer = setTimeout(() => {
+        window.removeEventListener('message', onMessage);
+        resolve({ error: 'timeout' });
+      }, timeout);
+      function onMessage(event) {
+        const msg = event.data;
+        if (!msg || msg.type !== 'rhwp-response' || msg.id !== id) return;
+        clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        resolve({ result: msg.result, error: msg.error });
+      }
+      window.addEventListener('message', onMessage);
+      editor.contentWindow.postMessage({ type: 'rhwp-request', id, method, params }, '*');
+    });
+  }
+  const html = `
+    <style>
+      body { font-family: "Malgun Gothic", sans-serif; font-size: 9.5pt; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border: 1px solid #555; padding: 4px 6px; vertical-align: middle; word-break: keep-all; }
+      th { background: #d9d9d9; font-weight: 700; text-align: center; }
+      .ok { color: #047857; font-weight: 700; }
+      .warn { color: #b45309; font-weight: 700; }
+      .no { color: #b91c1c; font-weight: 700; }
+    </style>
+    <h2 style="text-align:center;margin:0 0 12px">RHWP 표 기능 점검표</h2>
+    <table>
+      <colgroup><col style="width:22%"><col style="width:14%"><col style="width:30%"><col style="width:34%"></colgroup>
+      <tbody>
+        <tr><th>기능</th><th>판정</th><th>확인한 내용</th><th>다음 조치</th></tr>
+        <tr><td>표 로드</td><td class="ok">가능</td><td>HTML 표를 RHWP 네이티브 표로 변환</td><td>운영일지 템플릿 로드에 활용 가능</td></tr>
+        <tr><td>셀 내용 입력</td><td class="ok">가능</td><td>표 안 텍스트 렌더링 가능</td><td>직접 타이핑 입력은 별도 포커스 개선 필요</td></tr>
+        <tr><td>셀 배경/테두리</td><td class="ok">가능</td><td>헤더 배경, 선, 기본 패딩 반영</td><td>운영일지 회색 헤더 재현 가능</td></tr>
+        <tr><td>열 너비</td><td class="ok">가능</td><td>colgroup 기반 너비 반영</td><td>A4 안쪽 폭 계산과 연결</td></tr>
+        <tr><td>HWPX 저장</td><td class="ok">가능</td><td>exportHwpx API 응답 확인</td><td>표준 경고는 자동 보정 정책과 분리</td></tr>
+        <tr><td>HWP 저장</td><td class="ok">가능</td><td>exportHwp API 응답 확인</td><td>최종 배포는 HWP 저장 우선</td></tr>
+        <tr><td>표 만들기 UI</td><td class="ok">가능</td><td>상단 표 버튼과 격자 팝업 확인</td><td>생성 후 셀 포커스 연결 확인 필요</td></tr>
+        <tr><td>셀 내부 포커스</td><td class="no">불가</td><td>표 클릭 후에도 메뉴가 셀 상태로 바뀌지 않음</td><td>hitTest/cursor cell 매핑 보정 필요</td></tr>
+        <tr><td>줄/칸 추가</td><td class="no">불가</td><td>메뉴가 비활성</td><td>셀 내부 포커스가 먼저 해결돼야 함</td></tr>
+        <tr><td>줄/칸 삭제</td><td class="no">불가</td><td>메뉴가 비활성</td><td>셀 내부 포커스가 먼저 해결돼야 함</td></tr>
+        <tr><td>셀 병합</td><td class="no">불가</td><td>셀 선택 모드가 안정적으로 잡히지 않음</td><td>F5 셀 선택/범위 선택 흐름 점검</td></tr>
+        <tr><td>셀 나누기</td><td class="no">불가</td><td>메뉴가 비활성</td><td>셀 내부 포커스가 먼저 해결돼야 함</td></tr>
+        <tr><td>셀 높이/너비 같게</td><td class="no">불가</td><td>메뉴가 비활성</td><td>셀 내부 포커스가 먼저 해결돼야 함</td></tr>
+        <tr><td>계산식</td><td class="no">불가</td><td>메뉴가 비활성</td><td>숫자 셀 포커스와 범위 선택부터 필요</td></tr>
+      </tbody>
+    </table>
+  `;
+  render();
+  const key = 'rhwp-table-feature-lab-' + Date.now();
+  sessionStorage.setItem(key, JSON.stringify({ html, fileName: 'RHWP 표 기능 점검표.hwp' }));
+  editor.src = '/rhwp-studio/index.html?seochangNativeHtmlKey=' + encodeURIComponent(key) + '&suppressValidationModal=1&autoFixValidation=1';
+  editor.addEventListener('load', async () => {
+    setFeature('표 로드', 'ok', 'iframe 로드 완료');
+    await request('ready');
+    const layout = await request('getTableLayout');
+    const tables = layout.result?.tables || [];
+    if (tables.length) {
+      setFeature('HTML 표 → 네이티브 표 변환', 'ok', `${tables.length}개 표 인식`);
+      setFeature('표 위치/크기 조회', 'ok', JSON.stringify(tables[0]));
+    } else {
+      setFeature('HTML 표 → 네이티브 표 변환', 'no', layout.error || '인식된 표 없음');
+      setFeature('표 위치/크기 조회', 'no', layout.error || '인식된 표 없음');
+    }
+    const hwpx = await request('exportHwpx', null, 30000);
+    setFeature('HWPX 내보내기', hwpx.result?.length ? 'ok' : 'no', hwpx.result?.length ? `${hwpx.result.length.toLocaleString()} bytes` : (hwpx.error || '실패'));
+    const hwp = await request('exportHwp', null, 30000);
+    setFeature('HWP 내보내기', hwp.result?.length ? 'ok' : 'no', hwp.result?.length ? `${hwp.result.length.toLocaleString()} bytes` : (hwp.error || '실패'));
+    meta.textContent = JSON.stringify({ layout, hwpxBytes: hwpx.result?.length || 0, hwpBytes: hwp.result?.length || 0 }, null, 2);
+  });
+</script>
