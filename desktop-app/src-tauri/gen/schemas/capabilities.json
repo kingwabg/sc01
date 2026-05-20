@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"서창 운영관리 기본 권한","local":true,"windows":["main"],"permissions":["core:default","sql:default","sql:allow-execute"]}}

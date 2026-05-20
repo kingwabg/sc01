@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+desktop-app/dist/
+desktop-app/src-tauri/target/
+
+# Local logs
+*.log
+desktop-app/*.log
+
+# Local backups and scratch data
+_backups/
+*.tmp
+*.bak
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large local vendor checkout used only for reference
+desktop-app/vendor/rhwp/

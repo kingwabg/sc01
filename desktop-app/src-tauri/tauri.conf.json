@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "서창 운영관리",
+  "version": "0.1.0",
+  "identifier": "com.seochang.operations",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "서창 운영관리",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 1100,
+        "minHeight": 760
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
+    "windows": {
+      "wix": {
+        "language": "ko-KR"
+      }
+    }
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:seochang-operations.db"]
+    }
+  }
+}
