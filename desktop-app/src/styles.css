@@ -1614,6 +1614,118 @@ td {
   grid-template-columns: minmax(180px, .55fr) minmax(280px, 1.7fr) auto;
 }
 
+.rhwp-library-tools {
+  grid-row: 2;
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #c7ccd4;
+  background: #eef2f7;
+}
+
+.rhwp-table-position-panel {
+  display: grid;
+  grid-template-columns: minmax(150px, .42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.rhwp-table-position-head {
+  display: grid;
+  gap: 3px;
+}
+
+.rhwp-table-position-head strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.rhwp-table-position-head span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rhwp-table-position-grid {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.rhwp-position-stepper,
+.rhwp-position-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 3px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.rhwp-position-stepper span,
+.rhwp-position-mode span {
+  padding: 0 5px;
+  color: #64748b;
+}
+
+.rhwp-position-stepper button,
+.rhwp-position-reset {
+  min-height: 28px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.rhwp-position-stepper button:hover,
+.rhwp-position-reset:hover {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.rhwp-position-stepper input,
+.rhwp-position-mode select {
+  width: 62px;
+  min-height: 28px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.rhwp-position-mode select {
+  width: 96px;
+  padding: 0 7px;
+}
+
+.rhwp-position-stepper em {
+  padding-right: 6px;
+  color: #94a3b8;
+  font-style: normal;
+}
+
 .rhwp-library-body {
   grid-row: 3;
   min-width: 0;

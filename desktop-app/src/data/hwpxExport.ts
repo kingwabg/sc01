@@ -126,6 +126,15 @@ function renderTableLineSeg(paragraphIndex: number) {
   return `<hp:lineseg textpos="0" vertpos="${baseVert}" vertsize="1000" textheight="1000" baseline="850" spacing="600" horzpos="0" horzsize="0" flags="393216"/>`;
 }
 
+function mmToHwpx(value: number | null | undefined) {
+  if (!Number.isFinite(value || 0)) return 0;
+  return Math.round((value || 0) * 283.465);
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 type ParsedHwpxCell = {
   text: string;
   row: number;
@@ -163,6 +172,20 @@ type ParsedHwpxHtml = {
   lines: string[];
 };
 
+export type HwpxTablePositionMode = 'fixed' | 'edit';
+
+export type HwpxTablePositionOptions = {
+  mode?: HwpxTablePositionMode;
+  horizontalMm?: number;
+  verticalMm?: number;
+};
+
+type HwpxExportOptions = {
+  preferNative?: boolean;
+  allowFallback?: boolean;
+  tablePosition?: HwpxTablePositionOptions;
+};
+
 const HWPX_TEXT_WIDTH = 53858;
 const HWPX_TABLE_WIDTH = 53292;
 const HWPX_CELL_BORDER_WHITE = 3;
@@ -175,6 +198,24 @@ const HWPX_CHAR_LABEL = 31;
 const HWPX_CHAR_TITLE = 32;
 const HWPX_CHAR_SMALL = 33;
 const HWPX_CHAR_STAMP = 34;
+
+function getTablePosition(tableIndex: number, options?: HwpxTablePositionOptions) {
+  const horizontal = clampNumber(mmToHwpx(options?.horizontalMm), -4252, 4252);
+  const vertical = clampNumber(mmToHwpx(options?.verticalMm), -2835, 8504);
+  const editMode = options?.mode === 'edit';
+  const baseLeft = 283;
+  const baseRight = 283;
+  const baseTop = 120;
+
+  return {
+    editMode,
+    horizontal,
+    vertical,
+    leftMargin: clampNumber(baseLeft + horizontal, 0, 8504),
+    rightMargin: clampNumber(baseRight - horizontal, 0, 8504),
+    topMargin: tableIndex === 0 ? clampNumber(baseTop + Math.max(0, vertical), 0, 8504) : baseTop
+  };
+}
 
 function normalizeTextLines(value: string) {
   return value
@@ -571,9 +612,10 @@ function renderCellMargin(cell: ParsedHwpxCell) {
   return '<hp:cellMargin left="100" right="100" top="70" bottom="70"/>';
 }
 
-function renderHwpxTable(table: ParsedHwpxTable, index: number) {
+function renderHwpxTable(table: ParsedHwpxTable, index: number, tablePosition?: HwpxTablePositionOptions) {
   const height = table.rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0);
   const tableId = 9000 + index;
+  const position = getTablePosition(index, tablePosition);
   const cellWidth = (cell: ParsedHwpxCell) =>
     table.columnWidths.slice(cell.col, cell.col + cell.colSpan).reduce((sum, width) => sum + width, 0);
   const cellHeight = (cell: ParsedHwpxCell) =>
@@ -600,17 +642,17 @@ function renderHwpxTable(table: ParsedHwpxTable, index: number) {
 
   return `<hp:tbl id="${tableId}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="0" rowCnt="${table.rowCount}" colCnt="${table.colCount}" cellSpacing="0" borderFillIDRef="${HWPX_CELL_BORDER_WHITE}" noAdjust="0">`
     + `<hp:sz width="${HWPX_TABLE_WIDTH}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/>`
-    + '<hp:pos treatAsChar="0" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>'
-    + '<hp:outMargin left="283" right="283" top="120" bottom="283"/>'
+    + `<hp:pos treatAsChar="0" affectLSpacing="0" flowWithText="${position.editMode ? '0' : '1'}" allowOverlap="${position.editMode ? '1' : '0'}" holdAnchorAndSO="${position.editMode ? '1' : '0'}" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="${position.vertical}" horzOffset="${position.horizontal}"/>`
+    + `<hp:outMargin left="${position.leftMargin}" right="${position.rightMargin}" top="${position.topMargin}" bottom="283"/>`
     + '<hp:inMargin left="0" right="0" top="0" bottom="0"/>'
     + rows
     + '</hp:tbl>';
 }
 
-function buildTableParagraph(table: ParsedHwpxTable, index: number) {
+function buildTableParagraph(table: ParsedHwpxTable, index: number, tablePosition?: HwpxTablePositionOptions) {
   const paragraphId = 3121191098 + index;
   return `<hp:p id="${paragraphId}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">`
-    + `<hp:run charPrIDRef="0">${renderHwpxTable(table, index)}<hp:t/></hp:run>`
+    + `<hp:run charPrIDRef="0">${renderHwpxTable(table, index, tablePosition)}<hp:t/></hp:run>`
     + `<hp:linesegarray>${renderTableLineSeg(index + 1)}</hp:linesegarray>`
     + '</hp:p>';
 }
@@ -634,7 +676,7 @@ function buildTextOnlySectionXml(lines: string[], emptySectionXml: string) {
   return xml.replace(PARA_CLOSE, `</hp:p>${extra}</hs:sec>`);
 }
 
-function buildSectionXml(parsed: ParsedHwpxHtml, emptySectionXml: string) {
+function buildSectionXml(parsed: ParsedHwpxHtml, emptySectionXml: string, tablePosition?: HwpxTablePositionOptions) {
   if (!parsed.tables.length) {
     return buildTextOnlySectionXml(parsed.lines, emptySectionXml);
   }
@@ -642,13 +684,13 @@ function buildSectionXml(parsed: ParsedHwpxHtml, emptySectionXml: string) {
   const [firstTable, ...restTables] = parsed.tables;
   let xml = applyHwpxPageSetup(emptySectionXml).replace(
     '<hp:run charPrIDRef="0"><hp:t/></hp:run>',
-    `<hp:run charPrIDRef="0">${renderHwpxTable(firstTable, 0)}<hp:t/></hp:run>`
+    `<hp:run charPrIDRef="0">${renderHwpxTable(firstTable, 0, tablePosition)}<hp:t/></hp:run>`
   );
   xml = xml.replace(
     /<hp:linesegarray>.*?<\/hp:linesegarray>/,
     `<hp:linesegarray>${renderTableLineSeg(0)}</hp:linesegarray>`
   );
-  const extra = restTables.map((table, index) => buildTableParagraph(table, index + 1)).join('');
+  const extra = restTables.map((table, index) => buildTableParagraph(table, index + 1, tablePosition)).join('');
   return xml.replace('</hs:sec>', `${extra}</hs:sec>`);
 }
 
@@ -693,7 +735,7 @@ function ensureHwpxTableHeaderStyles(headerXml: string) {
   return xml;
 }
 
-export async function createHwpxBlobFromHtml(html: string) {
+export async function createHwpxBlobFromHtml(html: string, options: Pick<HwpxExportOptions, 'tablePosition'> = {}) {
   const assets = await loadBaseAssets();
   const parsed = parseHtmlForHwpx(html);
   const zip = new JSZip();
@@ -703,7 +745,7 @@ export async function createHwpxBlobFromHtml(html: string) {
   zip.file('settings.xml', assets.settings);
   zip.file('Contents/content.hpf', assets.content);
   zip.file('Contents/header.xml', ensureHwpxTableHeaderStyles(assets.header));
-  zip.file('Contents/section0.xml', buildSectionXml(parsed, assets.section));
+  zip.file('Contents/section0.xml', buildSectionXml(parsed, assets.section, options.tablePosition));
   zip.file('META-INF/container.xml', META_INF_CONTAINER_XML);
   zip.file('META-INF/container.rdf', META_INF_CONTAINER_RDF);
   zip.file('META-INF/manifest.xml', META_INF_MANIFEST_XML);
@@ -719,9 +761,9 @@ export async function createHwpxBlobFromHtml(html: string) {
 
 export async function createHwpxBytesFromHtml(
   html: string,
-  options: { preferNative?: boolean; allowFallback?: boolean } = {}
+  options: HwpxExportOptions = {}
 ) {
-  if (options.preferNative !== false) {
+  if (options.preferNative !== false && !options.tablePosition) {
     try {
       const hasTauriInvoke = typeof window !== 'undefined'
         && typeof (window as unknown as { __TAURI_INTERNALS__?: { invoke?: unknown } }).__TAURI_INTERNALS__?.invoke === 'function';
@@ -737,7 +779,7 @@ export async function createHwpxBytesFromHtml(
       console.warn('RHWP native HWPX export failed, falling back to lightweight package.', error);
     }
   }
-  const blob = await createHwpxBlobFromHtml(html);
+  const blob = await createHwpxBlobFromHtml(html, { tablePosition: options.tablePosition });
   return new Uint8Array(await blob.arrayBuffer());
 }
 

@@ -3,6 +3,7 @@ import type { MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'r
 import type { AttendanceEntry, Child, ChildAttendanceEntry, DashboardSnapshot, ImportSummary, InitialImportPayload, JournalEntry, JournalTemplate, Person } from './types';
 import { deleteChildAttendanceEntry, getDataProviderLabel, loadDashboardSnapshot, loadJournalTemplates, rebuildDedupedChildrenFromLocalData, replaceLocalDatabaseFromImport, saveChildAttendanceEntries, saveChildRecord, saveGeneratedJournals, saveJournalEntry, saveJournalTemplate } from './data/dataProvider';
 import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport';
+import type { HwpxTablePositionMode, HwpxTablePositionOptions } from './data/hwpxExport';
 import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplate } from './data/journalTemplates';
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 
@@ -1585,6 +1586,36 @@ function inlineStylesForRhwpImport(sourceHtml: string) {
   }
 }
 
+const RHWP_TABLE_POSITION_STORAGE_KEY = 'seochang.rhwp.tablePosition.v1';
+const DEFAULT_RHWP_TABLE_POSITION: Required<HwpxTablePositionOptions> = {
+  mode: 'fixed',
+  horizontalMm: 0,
+  verticalMm: 0
+};
+
+function clampMm(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(max, Math.max(min, Math.round(value * 10) / 10));
+}
+
+function normalizeRhwpTablePosition(value: Partial<HwpxTablePositionOptions> | null | undefined): Required<HwpxTablePositionOptions> {
+  return {
+    mode: value?.mode === 'edit' ? 'edit' : 'fixed',
+    horizontalMm: clampMm(Number(value?.horizontalMm ?? 0), -15, 15),
+    verticalMm: clampMm(Number(value?.verticalMm ?? 0), -10, 30)
+  };
+}
+
+function loadRhwpTablePosition(): Required<HwpxTablePositionOptions> {
+  if (typeof window === 'undefined') return DEFAULT_RHWP_TABLE_POSITION;
+  try {
+    const saved = window.localStorage.getItem(RHWP_TABLE_POSITION_STORAGE_KEY);
+    return saved ? normalizeRhwpTablePosition(JSON.parse(saved)) : DEFAULT_RHWP_TABLE_POSITION;
+  } catch {
+    return DEFAULT_RHWP_TABLE_POSITION;
+  }
+}
+
 function RhwpEditorPane({
   html,
   onHtmlCommit,
@@ -1604,9 +1635,31 @@ function RhwpEditorPane({
   const editorRef = useRef<RhwpEditorInstance | null>(null);
   const loadSeqRef = useRef(0);
   const [showHtmlPanel, setShowHtmlPanel] = useState(false);
+  const [showPositionPanel, setShowPositionPanel] = useState(false);
   const [draftHtml, setDraftHtml] = useState(html);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('RHWP 에디터를 준비하는 중입니다.');
+  const [tablePosition, setTablePosition] = useState<Required<HwpxTablePositionOptions>>(() => loadRhwpTablePosition());
+
+  const updateTablePosition = (patch: Partial<HwpxTablePositionOptions>) => {
+    setTablePosition((current) => normalizeRhwpTablePosition({ ...current, ...patch }));
+  };
+
+  const shiftTablePosition = (axis: 'horizontalMm' | 'verticalMm', amount: number) => {
+    setTablePosition((current) => normalizeRhwpTablePosition({ ...current, [axis]: current[axis] + amount }));
+  };
+
+  const resetTablePosition = () => {
+    setTablePosition(DEFAULT_RHWP_TABLE_POSITION);
+  };
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RHWP_TABLE_POSITION_STORAGE_KEY, JSON.stringify(tablePosition));
+    } catch {
+      // localStorage가 막힌 환경에서는 이번 세션에서만 유지합니다.
+    }
+  }, [tablePosition]);
 
   const resetRhwpEmbeddedCaches = async () => {
     try {
@@ -1701,7 +1754,11 @@ function RhwpEditorPane({
     const seq = ++loadSeqRef.current;
     const rhwpHtml = inlineStylesForRhwpImport(sourceHtml);
     setStatus('운영일지를 HWPX 문서로 변환하는 중입니다.');
-    const bytes = await createHwpxBytesFromHtml(rhwpHtml, { preferNative: false, allowFallback: true });
+    const bytes = await createHwpxBytesFromHtml(rhwpHtml, {
+      preferNative: false,
+      allowFallback: true,
+      tablePosition
+    });
 
     if (seq !== loadSeqRef.current) return;
     setStatus('RHWP 에디터에 운영일지를 여는 중입니다.');
@@ -1787,7 +1844,7 @@ function RhwpEditorPane({
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`운영일지 템플릿 로드 실패: ${message}`);
     });
-  }, [html]);
+  }, [html, tablePosition]);
 
   return (
     <div className="rhwp-editor-shell rhwp-library-shell">
@@ -1797,6 +1854,13 @@ function RhwpEditorPane({
           <span>{status}</span>
         </div>
         <div className="rhwp-library-actions">
+          <button
+            type="button"
+            className={showPositionPanel ? 'active' : ''}
+            onClick={() => setShowPositionPanel((current) => !current)}
+          >
+            표 위치
+          </button>
           <button
             type="button"
             className={showHtmlPanel ? 'active' : ''}
@@ -1813,28 +1877,88 @@ function RhwpEditorPane({
         </div>
       </div>
 
-      {showHtmlPanel && (
-        <div className="rhwp-html-menu-panel rhwp-library-html-panel">
-          <div className="rhwp-html-menu-head">
-            <strong>HTML로 표 만들기</strong>
-            <span>붙여 넣은 HTML은 운영일지 템플릿 값으로 저장됩니다.</span>
-          </div>
-          <textarea
-            value={draftHtml}
-            onChange={(event) => {
-              setDraftHtml(event.target.value);
-              setDirty(true);
-            }}
-            spellCheck={false}
-          />
-          <div className="button-cluster">
-            <button type="button" onClick={() => applyHtmlDraft(defaultHtml || html)}>
-              기본 템플릿 넣기
-            </button>
-            <button type="button" className="primary small" onClick={() => applyHtmlDraft()}>
-              표 만들기
-            </button>
-          </div>
+      {(showPositionPanel || showHtmlPanel) && (
+        <div className="rhwp-library-tools">
+          {showPositionPanel && (
+            <div className="rhwp-table-position-panel">
+              <div className="rhwp-table-position-head">
+                <strong>표 위치 조정</strong>
+                <span>
+                  {tablePosition.mode === 'fixed'
+                    ? '인쇄 고정 모드 · 위치값만 반영'
+                    : '편집 이동 모드 · 표 객체 이동 허용'}
+                </span>
+              </div>
+              <div className="rhwp-table-position-grid">
+                <div className="rhwp-position-stepper" aria-label="가로 위치 조정">
+                  <span>좌우</span>
+                  <button type="button" onClick={() => shiftTablePosition('horizontalMm', -1)}>왼쪽</button>
+                  <input
+                    type="number"
+                    min="-15"
+                    max="15"
+                    step="0.5"
+                    value={tablePosition.horizontalMm}
+                    onChange={(event) => updateTablePosition({ horizontalMm: Number(event.target.value) })}
+                  />
+                  <button type="button" onClick={() => shiftTablePosition('horizontalMm', 1)}>오른쪽</button>
+                  <em>mm</em>
+                </div>
+                <div className="rhwp-position-stepper" aria-label="세로 위치 조정">
+                  <span>상하</span>
+                  <button type="button" onClick={() => shiftTablePosition('verticalMm', -1)}>위</button>
+                  <input
+                    type="number"
+                    min="-10"
+                    max="30"
+                    step="0.5"
+                    value={tablePosition.verticalMm}
+                    onChange={(event) => updateTablePosition({ verticalMm: Number(event.target.value) })}
+                  />
+                  <button type="button" onClick={() => shiftTablePosition('verticalMm', 1)}>아래</button>
+                  <em>mm</em>
+                </div>
+                <label className="rhwp-position-mode">
+                  <span>모드</span>
+                  <select
+                    value={tablePosition.mode}
+                    onChange={(event) => updateTablePosition({ mode: event.target.value as HwpxTablePositionMode })}
+                  >
+                    <option value="fixed">인쇄 고정</option>
+                    <option value="edit">편집 이동</option>
+                  </select>
+                </label>
+                <button type="button" className="rhwp-position-reset" onClick={resetTablePosition}>
+                  초기화
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showHtmlPanel && (
+            <div className="rhwp-html-menu-panel rhwp-library-html-panel">
+              <div className="rhwp-html-menu-head">
+                <strong>HTML로 표 만들기</strong>
+                <span>붙여 넣은 HTML은 운영일지 템플릿 값으로 저장됩니다.</span>
+              </div>
+              <textarea
+                value={draftHtml}
+                onChange={(event) => {
+                  setDraftHtml(event.target.value);
+                  setDirty(true);
+                }}
+                spellCheck={false}
+              />
+              <div className="button-cluster">
+                <button type="button" onClick={() => applyHtmlDraft(defaultHtml || html)}>
+                  기본 템플릿 넣기
+                </button>
+                <button type="button" className="primary small" onClick={() => applyHtmlDraft()}>
+                  표 만들기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
