@@ -201,11 +201,11 @@ const HWPX_CHAR_SMALL = 33;
 const HWPX_CHAR_STAMP = 34;
 
 function getTablePosition(tableIndex: number, options?: HwpxTablePositionOptions) {
-  const horizontal = clampNumber(mmToHwpx(options?.horizontalMm), -4252, 4252);
-  const vertical = clampNumber(mmToHwpx(options?.verticalMm), -2835, 8504);
   const editMode = options?.mode === 'edit';
   const widthPercent = clampNumber(options?.widthPercent ?? 100, 75, 100);
   const tableWidth = Math.round(HWPX_TABLE_WIDTH * widthPercent / 100);
+  const horizontal = clampNumber(mmToHwpx(options?.horizontalMm), 0, Math.max(0, HWPX_TABLE_WIDTH - tableWidth));
+  const vertical = clampNumber(mmToHwpx(options?.verticalMm), -2835, 8504);
   const baseLeft = 283;
   const baseRight = 283;
   const baseTop = 120;
@@ -216,7 +216,7 @@ function getTablePosition(tableIndex: number, options?: HwpxTablePositionOptions
     vertical,
     tableWidth,
     leftMargin: clampNumber(baseLeft + horizontal, 0, 8504),
-    rightMargin: clampNumber(baseRight - horizontal, 0, 8504),
+    rightMargin: clampNumber(baseRight + Math.max(0, HWPX_TABLE_WIDTH - tableWidth - horizontal), 0, 8504),
     topMargin: tableIndex === 0 ? clampNumber(baseTop + Math.max(0, vertical), 0, 8504) : baseTop
   };
 }

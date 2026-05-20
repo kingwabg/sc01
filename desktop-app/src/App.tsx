@@ -1603,14 +1603,14 @@ function clampRhwpNumber(value: number, min: number, max: number, fallback = 0) 
   return Math.min(max, Math.max(min, Math.round(value * 10) / 10));
 }
 
-function getRhwpHorizontalLimitMm(widthPercent: number) {
+function getRhwpHorizontalAvailableMm(widthPercent: number) {
   const normalizedWidth = clampRhwpNumber(
     Number(widthPercent),
     RHWP_TABLE_WIDTH_MIN_PERCENT,
     RHWP_TABLE_WIDTH_MAX_PERCENT,
     RHWP_TABLE_WIDTH_MAX_PERCENT
   );
-  return Math.round(((RHWP_PRINTABLE_TABLE_WIDTH_MM * (1 - normalizedWidth / 100)) / 2) * 10) / 10;
+  return Math.round((RHWP_PRINTABLE_TABLE_WIDTH_MM * (1 - normalizedWidth / 100)) * 10) / 10;
 }
 
 function normalizeRhwpTablePosition(value: Partial<HwpxTablePositionOptions> | null | undefined): Required<HwpxTablePositionOptions> {
@@ -1620,10 +1620,10 @@ function normalizeRhwpTablePosition(value: Partial<HwpxTablePositionOptions> | n
     RHWP_TABLE_WIDTH_MAX_PERCENT,
     100
   );
-  const horizontalLimit = getRhwpHorizontalLimitMm(widthPercent);
+  const horizontalLimit = getRhwpHorizontalAvailableMm(widthPercent);
   return {
     mode: value?.mode === 'edit' ? 'edit' : 'fixed',
-    horizontalMm: clampRhwpNumber(Number(value?.horizontalMm ?? 0), -horizontalLimit, horizontalLimit),
+    horizontalMm: clampRhwpNumber(Number(value?.horizontalMm ?? 0), 0, horizontalLimit),
     verticalMm: clampRhwpNumber(Number(value?.verticalMm ?? 0), -10, 30),
     widthPercent
   };
@@ -2086,11 +2086,11 @@ function RhwpEditorPane({
           {showPositionPanel && (
             <div className="rhwp-table-position-panel">
               <div className="rhwp-table-position-head">
-                <strong>표 위치 조정</strong>
+                <strong>표 크기/위치 조정</strong>
                 <span>
                   {tablePosition.mode === 'fixed'
-                    ? '인쇄 고정 모드 · 위치/너비값 반영'
-                    : '편집 이동 모드 · 표 객체 이동 허용'}
+                    ? '수동 조정 · 본문 여백 안에서만 이동'
+                    : '편집 이동 모드 · 본문 여백 안에서만 이동'}
                 </span>
               </div>
               <div className="rhwp-table-position-grid">
@@ -2113,8 +2113,8 @@ function RhwpEditorPane({
                   <button type="button" onClick={() => shiftTablePosition('horizontalMm', -1)}>왼쪽</button>
                   <input
                     type="number"
-                    min={-getRhwpHorizontalLimitMm(tablePosition.widthPercent)}
-                    max={getRhwpHorizontalLimitMm(tablePosition.widthPercent)}
+                    min={0}
+                    max={getRhwpHorizontalAvailableMm(tablePosition.widthPercent)}
                     step="0.5"
                     value={tablePosition.horizontalMm}
                     onChange={(event) => updateTablePosition({ horizontalMm: Number(event.target.value) })}
@@ -2151,8 +2151,8 @@ function RhwpEditorPane({
                 </button>
               </div>
               <p className="rhwp-position-hint">
-                좌우 이동 범위: -{getRhwpHorizontalLimitMm(tablePosition.widthPercent)}mm ~ {getRhwpHorizontalLimitMm(tablePosition.widthPercent)}mm
-                {tablePosition.widthPercent >= 100 ? ' · 표가 여백을 꽉 채워 좌우 이동은 제한됩니다.' : ' · 표는 용지 여백 안에서만 이동합니다.'}
+                좌우 이동 범위: 0mm ~ {getRhwpHorizontalAvailableMm(tablePosition.widthPercent)}mm
+                {tablePosition.widthPercent >= 100 ? ' · 표가 본문 폭을 꽉 채워 좌우 이동은 0mm입니다.' : ' · 표는 흰색 페이지의 본문 여백 안에서만 이동합니다.'}
               </p>
             </div>
           )}
