@@ -1635,6 +1635,15 @@ td {
   box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
 }
 
+.rhwp-table-position-panel .rhwp-position-hint {
+  grid-column: 2;
+  margin: -2px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .rhwp-table-position-head {
   display: grid;
   gap: 3px;
@@ -1713,6 +1722,10 @@ td {
   font-size: 12px;
   font-weight: 900;
   text-align: center;
+}
+
+.rhwp-position-size input {
+  width: 58px;
 }
 
 .rhwp-position-mode select {

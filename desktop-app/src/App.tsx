@@ -1588,22 +1588,44 @@ function inlineStylesForRhwpImport(sourceHtml: string) {
 
 const RHWP_TABLE_POSITION_STORAGE_KEY = 'seochang.rhwp.tablePosition.v1';
 const RHWP_HWP_UNITS_PER_MM = 7200 / 25.4;
+const RHWP_PRINTABLE_TABLE_WIDTH_MM = 53292 / RHWP_HWP_UNITS_PER_MM;
+const RHWP_TABLE_WIDTH_MIN_PERCENT = 75;
+const RHWP_TABLE_WIDTH_MAX_PERCENT = 100;
 const DEFAULT_RHWP_TABLE_POSITION: Required<HwpxTablePositionOptions> = {
   mode: 'fixed',
   horizontalMm: 0,
-  verticalMm: 0
+  verticalMm: 0,
+  widthPercent: 100
 };
 
-function clampMm(value: number, min: number, max: number) {
-  if (!Number.isFinite(value)) return 0;
+function clampRhwpNumber(value: number, min: number, max: number, fallback = 0) {
+  if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.round(value * 10) / 10));
 }
 
+function getRhwpHorizontalLimitMm(widthPercent: number) {
+  const normalizedWidth = clampRhwpNumber(
+    Number(widthPercent),
+    RHWP_TABLE_WIDTH_MIN_PERCENT,
+    RHWP_TABLE_WIDTH_MAX_PERCENT,
+    RHWP_TABLE_WIDTH_MAX_PERCENT
+  );
+  return Math.round(((RHWP_PRINTABLE_TABLE_WIDTH_MM * (1 - normalizedWidth / 100)) / 2) * 10) / 10;
+}
+
 function normalizeRhwpTablePosition(value: Partial<HwpxTablePositionOptions> | null | undefined): Required<HwpxTablePositionOptions> {
+  const widthPercent = clampRhwpNumber(
+    Number(value?.widthPercent ?? 100),
+    RHWP_TABLE_WIDTH_MIN_PERCENT,
+    RHWP_TABLE_WIDTH_MAX_PERCENT,
+    100
+  );
+  const horizontalLimit = getRhwpHorizontalLimitMm(widthPercent);
   return {
     mode: value?.mode === 'edit' ? 'edit' : 'fixed',
-    horizontalMm: clampMm(Number(value?.horizontalMm ?? 0), -15, 15),
-    verticalMm: clampMm(Number(value?.verticalMm ?? 0), -10, 30)
+    horizontalMm: clampRhwpNumber(Number(value?.horizontalMm ?? 0), -horizontalLimit, horizontalLimit),
+    verticalMm: clampRhwpNumber(Number(value?.verticalMm ?? 0), -10, 30),
+    widthPercent
   };
 }
 
@@ -1836,12 +1858,9 @@ function RhwpEditorPane({
     fileName = '운영일지.hwp',
   ) => {
     const key = `seochang-rhwp-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-    const position = tablePositionRef.current;
     window.sessionStorage.setItem(key, JSON.stringify({
       html: sourceHtml,
-      fileName,
-      horizontalHwp: Math.round(position.horizontalMm * RHWP_HWP_UNITS_PER_MM),
-      verticalHwp: Math.round(position.verticalMm * RHWP_HWP_UNITS_PER_MM),
+      fileName
     }));
     const loadUrl = new URL('/rhwp-studio/index.html', window.location.origin);
     loadUrl.searchParams.set('embed', '1');
@@ -1884,6 +1903,7 @@ function RhwpEditorPane({
     mode: position.mode,
     horizontalHwp: Math.round(position.horizontalMm * RHWP_HWP_UNITS_PER_MM),
     verticalHwp: Math.round(position.verticalMm * RHWP_HWP_UNITS_PER_MM),
+    widthPercent: position.widthPercent,
     reset
   });
 
@@ -1909,7 +1929,7 @@ function RhwpEditorPane({
       setStatus('RHWP 문서에서 이동할 표를 찾지 못했습니다.');
     } else if (count > 0 && !reset) {
       setStatus(
-        `표 위치 적용 완료 · 표 ${count}개 · 좌우 ${position.horizontalMm}mm / 상하 ${position.verticalMm}mm`
+        `표 조정 완료 · 표 ${count}개 · 너비 ${position.widthPercent}% · 좌우 ${position.horizontalMm}mm / 상하 ${position.verticalMm}mm`
       );
     } else if (!reset) {
       setStatus(`표 위치 변경 없음 · 표 ${tableCount}개 감지`);
@@ -1928,6 +1948,9 @@ function RhwpEditorPane({
       try {
         const loadUrl = createRhwpNativeSessionUrl(rhwpHtml, '운영일지.hwp');
         await navigateRhwpIframe(editor.element, loadUrl.toString(), 60000);
+        await waitForRhwpTables(editor, 45000);
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+        await applyRhwpTablePosition(editor, tablePositionRef.current, true);
         result = {};
       } catch (nativeError) {
         console.warn('RHWP native table load failed, falling back to HWPX load.', nativeError);
@@ -2021,13 +2044,6 @@ function RhwpEditorPane({
 
   useEffect(() => {
     if (!editorRef.current || !documentLoadedRef.current) return;
-    if (editorRef.current.element) {
-      loadTemplateIntoEditor(editorRef.current, html).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`표 위치 적용 실패: ${message}`);
-      });
-      return;
-    }
     applyRhwpTablePosition(editorRef.current, tablePosition, false).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`표 위치 적용 실패: ${message}`);
@@ -2073,18 +2089,32 @@ function RhwpEditorPane({
                 <strong>표 위치 조정</strong>
                 <span>
                   {tablePosition.mode === 'fixed'
-                    ? '인쇄 고정 모드 · 위치값만 반영'
+                    ? '인쇄 고정 모드 · 위치/너비값 반영'
                     : '편집 이동 모드 · 표 객체 이동 허용'}
                 </span>
               </div>
               <div className="rhwp-table-position-grid">
+                <div className="rhwp-position-stepper rhwp-position-size" aria-label="표 너비 조정">
+                  <span>표 너비</span>
+                  <button type="button" onClick={() => updateTablePosition({ widthPercent: tablePosition.widthPercent - 5 })}>작게</button>
+                  <input
+                    type="number"
+                    min={RHWP_TABLE_WIDTH_MIN_PERCENT}
+                    max={RHWP_TABLE_WIDTH_MAX_PERCENT}
+                    step="1"
+                    value={tablePosition.widthPercent}
+                    onChange={(event) => updateTablePosition({ widthPercent: Number(event.target.value) })}
+                  />
+                  <button type="button" onClick={() => updateTablePosition({ widthPercent: tablePosition.widthPercent + 5 })}>크게</button>
+                  <em>%</em>
+                </div>
                 <div className="rhwp-position-stepper" aria-label="가로 위치 조정">
                   <span>좌우</span>
                   <button type="button" onClick={() => shiftTablePosition('horizontalMm', -1)}>왼쪽</button>
                   <input
                     type="number"
-                    min="-15"
-                    max="15"
+                    min={-getRhwpHorizontalLimitMm(tablePosition.widthPercent)}
+                    max={getRhwpHorizontalLimitMm(tablePosition.widthPercent)}
                     step="0.5"
                     value={tablePosition.horizontalMm}
                     onChange={(event) => updateTablePosition({ horizontalMm: Number(event.target.value) })}
@@ -2120,6 +2150,10 @@ function RhwpEditorPane({
                   초기화
                 </button>
               </div>
+              <p className="rhwp-position-hint">
+                좌우 이동 범위: -{getRhwpHorizontalLimitMm(tablePosition.widthPercent)}mm ~ {getRhwpHorizontalLimitMm(tablePosition.widthPercent)}mm
+                {tablePosition.widthPercent >= 100 ? ' · 표가 여백을 꽉 채워 좌우 이동은 제한됩니다.' : ' · 표는 용지 여백 안에서만 이동합니다.'}
+              </p>
             </div>
           )}
 

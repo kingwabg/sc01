@@ -178,6 +178,7 @@ export type HwpxTablePositionOptions = {
   mode?: HwpxTablePositionMode;
   horizontalMm?: number;
   verticalMm?: number;
+  widthPercent?: number;
 };
 
 type HwpxExportOptions = {
@@ -203,6 +204,8 @@ function getTablePosition(tableIndex: number, options?: HwpxTablePositionOptions
   const horizontal = clampNumber(mmToHwpx(options?.horizontalMm), -4252, 4252);
   const vertical = clampNumber(mmToHwpx(options?.verticalMm), -2835, 8504);
   const editMode = options?.mode === 'edit';
+  const widthPercent = clampNumber(options?.widthPercent ?? 100, 75, 100);
+  const tableWidth = Math.round(HWPX_TABLE_WIDTH * widthPercent / 100);
   const baseLeft = 283;
   const baseRight = 283;
   const baseTop = 120;
@@ -211,6 +214,7 @@ function getTablePosition(tableIndex: number, options?: HwpxTablePositionOptions
     editMode,
     horizontal,
     vertical,
+    tableWidth,
     leftMargin: clampNumber(baseLeft + horizontal, 0, 8504),
     rightMargin: clampNumber(baseRight - horizontal, 0, 8504),
     topMargin: tableIndex === 0 ? clampNumber(baseTop + Math.max(0, vertical), 0, 8504) : baseTop
@@ -641,7 +645,7 @@ function renderHwpxTable(table: ParsedHwpxTable, index: number, tablePosition?: 
   }).join('');
 
   return `<hp:tbl id="${tableId}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="0" rowCnt="${table.rowCount}" colCnt="${table.colCount}" cellSpacing="0" borderFillIDRef="${HWPX_CELL_BORDER_WHITE}" noAdjust="0">`
-    + `<hp:sz width="${HWPX_TABLE_WIDTH}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/>`
+    + `<hp:sz width="${position.tableWidth}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/>`
     + `<hp:pos treatAsChar="0" affectLSpacing="0" flowWithText="${position.editMode ? '0' : '1'}" allowOverlap="${position.editMode ? '1' : '0'}" holdAnchorAndSO="${position.editMode ? '1' : '0'}" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="${position.vertical}" horzOffset="${position.horizontal}"/>`
     + `<hp:outMargin left="${position.leftMargin}" right="${position.rightMargin}" top="${position.topMargin}" bottom="283"/>`
     + '<hp:inMargin left="0" right="0" top="0" bottom="0"/>'
