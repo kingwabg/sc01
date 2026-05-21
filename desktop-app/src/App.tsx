@@ -11,6 +11,7 @@ import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 import { useMediaQuery } from './shared/hooks/useMediaQuery';
 import { safeRows } from './shared/lib/arrays';
 import { EmptyState } from './shared/ui/EmptyState';
+import { Panel } from './shared/ui/Panel';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 
@@ -3480,7 +3481,7 @@ function SpreadsheetParityPanel({ snapshot }: { snapshot: DashboardSnapshot }) {
   ].filter(Boolean).length;
 
   return (
-    <div className="panel parity-panel">
+    <Panel className="parity-panel">
       <div>
         <h2>스프레드시트 동일화 기준</h2>
         <p>기존 스프레드시트 기능을 데스크톱 앱 메뉴와 같은 순서로 옮기는 중입니다.</p>
@@ -3499,7 +3500,7 @@ function SpreadsheetParityPanel({ snapshot }: { snapshot: DashboardSnapshot }) {
         <strong>{readyCount}/4</strong>
         <span>기초 데이터 준비 상태</span>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -3790,23 +3791,23 @@ function ParityWorkbench({
 }) {
   return (
     <section className="parity-workbench">
-      <div className="panel parity-hero">
+      <Panel className="parity-hero">
         <span className="eyebrow">스프레드시트 동일화</span>
         <h2>{title}</h2>
         <p>{summary}</p>
-      </div>
-      <div className="panel parity-card">
+      </Panel>
+      <Panel className="parity-card">
         <h2>현재 연결됨</h2>
         <ul className="todo-list">
           {implemented.map((item) => <li key={item}>{item}</li>)}
         </ul>
-      </div>
-      <div className="panel parity-card">
+      </Panel>
+      <Panel className="parity-card">
         <h2>다음 구현</h2>
         <ul className="todo-list">
           {next.map((item) => <li key={item}>{item}</li>)}
         </ul>
-      </div>
+      </Panel>
     </section>
   );
 }
@@ -3884,15 +3885,15 @@ function App() {
               <StatCard label="운영일지" value={`${safeRows(snapshot.journals).length}건`} tone={snapshot.unsyncedCount ? 'warning' : ''} />
             </section>
             <section className="panel-grid">
-              <div className="panel">
+              <Panel>
                 <h2>운영 원칙</h2>
                 <ul className="todo-list">
                   <li>스프레드시트는 최초 이관과 백업용으로만 사용합니다.</li>
                   <li>작성, 수정, 출결 체크는 {providerLabel}에 저장합니다.</li>
                   <li>필요할 때만 스프레드시트/엑셀/PDF로 내보냅니다.</li>
                 </ul>
-              </div>
-              <div className="panel">
+              </Panel>
+              <Panel>
                 <h2>최근 운영일지</h2>
                 <div className="journal-list">
                   {safeRows(snapshot.journals).map((journal) => (
@@ -3903,13 +3904,13 @@ function App() {
                   ))}
                   {!safeRows(snapshot.journals).length && <EmptyState variant="inline">운영일지 데이터가 아직 없습니다.</EmptyState>}
                 </div>
-              </div>
+              </Panel>
             </section>
             <SpreadsheetParityPanel snapshot={snapshot} />
             {lastImportSummary && (
-              <div className="panel import-result">
+              <Panel className="import-result">
                 최근 이관: 인원 {lastImportSummary.peopleCount}명, 아동 {lastImportSummary.childCount}명, 출결 {lastImportSummary.attendanceCount + lastImportSummary.childAttendanceCount}건, 운영일지 {lastImportSummary.journalCount}건
-              </div>
+              </Panel>
             )}
           </>
         )}
@@ -4005,7 +4006,7 @@ function App() {
         )}
 
         {view === 'export' && (
-          <div className="panel sync-panel">
+          <Panel className="sync-panel">
             <h2>내보내기 설계</h2>
             <p>이제 Google Sheets는 운영 DB가 아니라 백업/공유/제출용 출력 대상입니다.</p>
             <div className="sync-flow">
@@ -4014,7 +4015,7 @@ function App() {
               <span>스프레드시트 내보내기</span>
               <span>PDF/HTML 출력</span>
             </div>
-          </div>
+          </Panel>
         )}
       </ViewErrorBoundary>
     </AppShell>
