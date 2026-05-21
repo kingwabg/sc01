@@ -184,6 +184,9 @@ export function JournalTemplatePage({ snapshot }: { snapshot: DashboardSnapshot 
   const renderedHtml = selectedJournal
     ? renderJournalTemplate(templateHtml, selectedJournal, snapshot.staff, snapshot.nonStaff, snapshot.attendance)
     : '<div class="journal-page">운영일지 데이터가 없습니다.</div>';
+  const unresolvedTokens = useMemo(() => {
+    return Array.from(new Set(Array.from(renderedHtml.matchAll(/\{\{[^{}]+\}\}/g)).map((match) => match[0]))).sort();
+  }, [renderedHtml]);
   const templateGroups = useMemo(() => {
     const names = new Set<string>(['일지', ...customGroups]);
     templates.forEach((template) => names.add(template.groupName || '일지'));
@@ -656,6 +659,11 @@ export function JournalTemplatePage({ snapshot }: { snapshot: DashboardSnapshot 
             onChange={(event) => setTemplateHtml(event.target.value)}
           />
         </details>
+        {unresolvedTokens.length > 0 && (
+          <p className="editor-message danger-text">
+            아직 연결되지 않은 필드: {unresolvedTokens.join(', ')}
+          </p>
+        )}
         <p className="editor-message">{message}</p>
       </div>
     </section>
