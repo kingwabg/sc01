@@ -245,11 +245,12 @@ features/journal-template/
 - 완료: `src/shared/lib/arrays.ts`로 배열 안전 처리 유틸 분리
 - 완료: 사이드바 브랜드 영역, 데이터 상태 뱃지, 활성 그룹 표시, 하단 액션 활성 상태를 서비스형 관리자 UI에 맞춰 개선
 - 완료: 사이드바 접힘 상태를 82px 아이콘 레일로 정리하고, 좁은 화면에서도 본문이 오른쪽에 붙도록 보정
+- 완료: `src/app/AppSidebar.tsx`로 사이드바 마크업과 아이콘 렌더링을 분리
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 펼침/접힘과 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동과 82px 접힘 레일 확인
 
 다음 추천 작업:
 
-1. `Panel`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
-2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
-3. `PeopleTable` 또는 `ChildrenTable` 중 하나를 첫 번째 feature 폴더로 이동한다.
+1. `AppShell`을 분리해 사이드바와 상단바, 본문 영역을 `App.tsx` 밖으로 꺼낸다.
+2. `Panel`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
+3. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
