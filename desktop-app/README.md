@@ -2,6 +2,10 @@
 
 Tauri + React + SQLite 기반의 Windows 앱이며, 같은 화면을 웹사이트로도 열 수 있게 데이터 연결층을 분리했습니다.
 
+## 작업 기억
+
+새 스레드나 새 작업자가 이어서 작업할 때는 저장소 루트의 `PROJECT_MEMORY.md`와 `AGENTS.md`를 먼저 확인합니다. RHWP 표 기능을 수정했다면 `docs/rhwp-table-feature-check.md`도 반드시 갱신합니다.
+
 ## 방향
 
 - 앱 입력과 조회는 SQLite에 먼저 저장합니다.
