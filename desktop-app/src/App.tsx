@@ -9,6 +9,7 @@ import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport
 import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplate } from './data/journalTemplates';
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { JournalEditPage } from './features/journal-edit/JournalEditPage';
 import { useMediaQuery } from './shared/hooks/useMediaQuery';
 import { safeRows } from './shared/lib/arrays';
 import { EmptyState } from './shared/ui/EmptyState';
@@ -3893,7 +3894,9 @@ function App() {
         )}
 
         {snapshot && view === 'journalPrint' && (
-          <JournalEditWorkspace
+          <JournalEditPage
+            PreviewModeTabs={PreviewModeTabs}
+            RhwpEditorPane={RhwpEditorPane}
             snapshot={snapshot}
             onSaved={handleDataChanged}
           />
