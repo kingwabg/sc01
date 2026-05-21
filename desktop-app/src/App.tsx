@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { AttendanceEntry, Child, ChildAttendanceEntry, DashboardSnapshot, ImportSummary, InitialImportPayload, JournalEntry, JournalTemplate, Person } from './types';
 import { AppSidebar } from './app/AppSidebar';
-import { flatMenu, yearOptions } from './app/navigation';
+import { yearOptions } from './app/navigation';
 import type { ViewKey } from './app/navigation';
 import { deleteChildAttendanceEntry, getDataProviderLabel, loadDashboardSnapshot, loadJournalTemplates, rebuildDedupedChildrenFromLocalData, replaceLocalDatabaseFromImport, saveChildAttendanceEntries, saveChildRecord, saveGeneratedJournals, saveJournalEntry, saveJournalTemplate } from './data/dataProvider';
 import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport';
@@ -3868,18 +3868,6 @@ function App() {
       />
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <h1>{flatMenu.find((item) => item.key === view)?.label}</h1>
-            <p>{status}</p>
-          </div>
-          <div className="topbar-actions">
-            <button type="button" onClick={() => setView('import')}>초기 이관</button>
-            <button type="button" onClick={refreshSnapshot}>새로고침</button>
-            <button type="button" className="primary" onClick={() => setView('export')}>내보내기 준비</button>
-          </div>
-        </header>
-
         {!snapshot && <EmptyState>데이터를 불러오는 중입니다.</EmptyState>}
         {snapshot && <StatusStrip snapshot={snapshot} providerLabel={providerLabel} />}
 
