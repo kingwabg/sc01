@@ -95,7 +95,11 @@
     'table:cell-split',
     'table:cell-height-equal',
     'table:cell-width-equal',
-    'table:formula'
+    'table:formula',
+    'table:block-formula',
+    'table:block-sum',
+    'table:block-avg',
+    'table:block-product'
   ];
   function applyFocusContext(state, source) {
     const context = state?.context || {};
@@ -108,7 +112,13 @@
     const canMerge = Boolean(commands['table:cell-merge']);
     const canSplit = Boolean(commands['table:cell-split']);
     const canEqualSize = Boolean(commands['table:cell-height-equal'] && commands['table:cell-width-equal']);
-    const canFormula = Boolean(commands['table:formula']);
+    const canFormula = Boolean(
+      commands['table:formula'] ||
+      commands['table:block-formula'] ||
+      commands['table:block-sum'] ||
+      commands['table:block-avg'] ||
+      commands['table:block-product']
+    );
     const cellSelection = state?.cellSelection || {};
     const selectionRange = cellSelection.range
       ? `${cellSelection.range.startRow},${cellSelection.range.startCol} → ${cellSelection.range.endRow},${cellSelection.range.endCol}`

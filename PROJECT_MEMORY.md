@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-05-21 20:39:59 +09:00
+Last updated: 2026-05-21 21:22:26 +09:00
 
 This file is the durable memory for the Seochang operations project. It exists so a new AI thread can continue without losing the hard-won context from earlier work.
 
@@ -48,6 +48,8 @@ RHWP table work took a lot of effort. Always preserve this context.
 
 - Main tracking file: `desktop-app/docs/rhwp-table-feature-check.md`
 - RHWP source path: `desktop-app/vendor/rhwp/rhwp-studio`
+- RHWP upstream source: `https://github.com/edwardkim/rhwp.git`
+- `desktop-app/vendor/rhwp/` is intentionally ignored by Git as a large local reference checkout. If it is missing, clone upstream with LFS smudge disabled when LFS budget blocks large PDFs: `GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/edwardkim/rhwp.git desktop-app/vendor/rhwp`.
 - Public built path: `desktop-app/public/rhwp-studio`
 - When RHWP source changes:
   - Build RHWP studio.
