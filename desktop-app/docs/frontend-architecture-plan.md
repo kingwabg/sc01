@@ -262,11 +262,12 @@ features/journal-template/
 - 완료: `src/features/program-plans/ProgramPlansPage.tsx`로 프로그램 계획 화면, 샘플 계획, 빠른 작업 아이콘을 기능 폴더로 분리
 - 완료: `src/shared/ui/data-table`로 정렬 헤더/컬럼폭 저장/필터 유틸을 분리
 - 완료: `src/features/people-roster/PeopleRosterPage.tsx`로 종사자/비종사자 공통 인력 표 화면을 기능 폴더로 분리
+- 완료: `src/features/children-roster/ChildrenRosterPage.tsx`로 아동 목록, 상세 모달, 중복 정리 흐름을 기능 폴더로 분리
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 아동 출결대장 화면, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage/JournalTemplatePage/ChildAttendancePage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 아동 출결대장 화면, 아동 목록 화면, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage/JournalTemplatePage/ChildAttendancePage/ChildrenRosterPage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
 
 다음 추천 작업:
 
 1. `Toolbar`와 버튼 클러스터 같은 패널 내부 액션 UI를 실제 사용처 기준으로 추출한다.
-2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
-3. 아동 목록 테이블 또는 프로그램 일지/평가 placeholder를 다음 기능 폴더로 분리한다.
+2. 프로그램 일지/평가 placeholder를 다음 기능 폴더로 분리한다.
+3. `ImportWizard`를 `features/import`로 분리해 `App.tsx`를 라우팅 중심으로 더 축소한다.
