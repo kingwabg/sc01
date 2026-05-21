@@ -12,6 +12,7 @@ import { useMediaQuery } from './shared/hooks/useMediaQuery';
 import { safeRows } from './shared/lib/arrays';
 import { EmptyState } from './shared/ui/EmptyState';
 import { Panel } from './shared/ui/Panel';
+import { PanelTitle } from './shared/ui/PanelTitle';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 
@@ -2021,15 +2022,15 @@ function JournalEditWorkspace({
       )}
       {!listHidden && (
         <div className="panel journal-edit-list-panel">
-          <div className="panel-title-row">
-            <div>
-              <h2>운영일지</h2>
-              <p>날짜를 고르면 미리보기와 수정폼이 함께 바뀝니다.</p>
-            </div>
-            <button className="journal-list-toggle-button is-open" type="button" onClick={() => setListHidden(true)}>
-              목록 접기
-            </button>
-          </div>
+          <PanelTitle
+            title="운영일지"
+            description="날짜를 고르면 미리보기와 수정폼이 함께 바뀝니다."
+            actions={(
+              <button className="journal-list-toggle-button is-open" type="button" onClick={() => setListHidden(true)}>
+                목록 접기
+              </button>
+            )}
+          />
           <div className="journal-edit-date-list">
             {journals.map((journal) => (
               <button
@@ -2055,16 +2056,16 @@ function JournalEditWorkspace({
       )}
 
       <div className="panel journal-edit-preview-panel">
-        <div className="panel-title-row">
-          <div>
-            <h2>미리보기</h2>
-            <p>{isDirty ? '저장 전 수정사항이 미리보기에 반영 중입니다.' : '현재 저장된 운영일지입니다.'}</p>
-          </div>
-          <div className="button-cluster">
-            {isDirty && <span className="draft-badge">저장 필요</span>}
-            <button type="button" onClick={downloadDraftHwpx}>HWPX 다운로드</button>
-          </div>
-        </div>
+        <PanelTitle
+          title="미리보기"
+          description={isDirty ? '저장 전 수정사항이 미리보기에 반영 중입니다.' : '현재 저장된 운영일지입니다.'}
+          actions={(
+            <div className="button-cluster">
+              {isDirty && <span className="draft-badge">저장 필요</span>}
+              <button type="button" onClick={downloadDraftHwpx}>HWPX 다운로드</button>
+            </div>
+          )}
+        />
         <PreviewModeTabs value={previewMode} onChange={setPreviewMode} />
         {previewMode === 'rhwp' ? (
           <RhwpEditorPane html={previewHtml} defaultHtml={defaultJournalTemplateHtml} />
@@ -2084,15 +2085,15 @@ function JournalEditWorkspace({
       )}
 
       <div className="panel journal-edit-form-panel">
-        <div className="panel-title-row">
-          <div>
-            <h2>일지 수정</h2>
-            <p>{message}</p>
-          </div>
-          <button type="button" className="primary" onClick={saveDraft} disabled={saving}>
-            {saving ? '저장 중' : '저장'}
-          </button>
-        </div>
+        <PanelTitle
+          title="일지 수정"
+          description={message}
+          actions={(
+            <button type="button" className="primary" onClick={saveDraft} disabled={saving}>
+              {saving ? '저장 중' : '저장'}
+            </button>
+          )}
+        />
 
         <div className="journal-edit-basic-grid">
           <label>
@@ -2632,10 +2633,7 @@ function StatisticsWorkspace({ snapshot }: { snapshot: DashboardSnapshot }) {
         <>
           <section className="stats-layout">
             <div className="panel chart-panel">
-              <div className="panel-title-row">
-                <h2>월별 출석 흐름</h2>
-                <span className="muted">운영일지 출석 합계</span>
-              </div>
+              <PanelTitle title="월별 출석 흐름" actions={<span className="muted">운영일지 출석 합계</span>} />
               <div className="monthly-bars">
                 {monthlyRows.map((row) => (
                   <div key={row.month} className="monthly-bar-row">
@@ -2650,12 +2648,14 @@ function StatisticsWorkspace({ snapshot }: { snapshot: DashboardSnapshot }) {
             </div>
 
             <div className="panel quality-panel">
-              <div className="panel-title-row">
-                <h2>데이터 점검</h2>
-                <span className={missingDates.length ? 'pill amber' : 'pill green'}>
-                  {missingDates.length ? '확인 필요' : '정상'}
-                </span>
-              </div>
+              <PanelTitle
+                title="데이터 점검"
+                actions={(
+                  <span className={missingDates.length ? 'pill amber' : 'pill green'}>
+                    {missingDates.length ? '확인 필요' : '정상'}
+                  </span>
+                )}
+              />
               <p>평일 기준 예상 운영일과 생성된 운영일지를 비교합니다.</p>
               <div className="quality-list">
                 <span>예상 운영일 {expectedDates.length}일</span>
@@ -3270,10 +3270,7 @@ function JournalTemplateWorkspace({ snapshot }: { snapshot: DashboardSnapshot })
   return (
     <section className="journal-workspace template-workspace" style={{ gridTemplateColumns: templateGridTemplate }}>
       <div className="panel journal-list-panel">
-        <div className="panel-title-row">
-          <h2>템플릿목록</h2>
-          <button type="button" onClick={createTemplate}>새 템플릿</button>
-        </div>
+        <PanelTitle title="템플릿목록" actions={<button type="button" onClick={createTemplate}>새 템플릿</button>} />
         <div className="template-group-create">
           <input
             value={newGroupName}
@@ -3349,27 +3346,27 @@ function JournalTemplateWorkspace({ snapshot }: { snapshot: DashboardSnapshot })
       )}
 
       <div className="panel preview-panel template-document-panel">
-        <div className="panel-title-row">
-          <div>
-            <h2>문서 에디터</h2>
-            <p>표를 직접 누르고 수정하면서 오른쪽에서 필드를 꽂습니다.</p>
-          </div>
-          <div className="button-cluster">
-            <label className="preview-date-select">
-              날짜
-              <select value={selectedJournal?.id || ''} onChange={(event) => setSelectedJournalId(event.target.value)}>
-                {snapshot.journals.map((journal) => (
-                  <option key={journal.id} value={journal.id}>
-                    {journal.date} · {journal.manager || '담당자 없음'}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={copyRenderedHtml}>HTML 복사</button>
-            <button type="button" onClick={downloadRenderedHwpx}>HWPX 다운로드</button>
-            <button type="button" className="primary small" onClick={printRenderedHtml}>인쇄</button>
-          </div>
-        </div>
+        <PanelTitle
+          title="문서 에디터"
+          description="표를 직접 누르고 수정하면서 오른쪽에서 필드를 꽂습니다."
+          actions={(
+            <div className="button-cluster">
+              <label className="preview-date-select">
+                날짜
+                <select value={selectedJournal?.id || ''} onChange={(event) => setSelectedJournalId(event.target.value)}>
+                  {snapshot.journals.map((journal) => (
+                    <option key={journal.id} value={journal.id}>
+                      {journal.date} · {journal.manager || '담당자 없음'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={copyRenderedHtml}>HTML 복사</button>
+              <button type="button" onClick={downloadRenderedHwpx}>HWPX 다운로드</button>
+              <button type="button" className="primary small" onClick={printRenderedHtml}>인쇄</button>
+            </div>
+          )}
+        />
         <PreviewModeTabs value={previewMode} onChange={setPreviewMode} editable />
         {previewMode === 'html' ? (
           <div className="a4-preview-stage">
@@ -3398,16 +3395,16 @@ function JournalTemplateWorkspace({ snapshot }: { snapshot: DashboardSnapshot })
       )}
 
       <div className="panel template-editor-panel template-inspector-panel">
-        <div className="panel-title-row">
-          <div>
-            <h2>필드 / 설정</h2>
-            <p>선택한 칸에 값을 넣거나 템플릿 정보를 관리합니다.</p>
-          </div>
-          <div className="button-cluster">
-            <button type="button" onClick={resetToDefaultTemplate}>기본 복구</button>
-            <button type="button" className="primary small" onClick={saveTemplate}>저장</button>
-          </div>
-        </div>
+        <PanelTitle
+          title="필드 / 설정"
+          description="선택한 칸에 값을 넣거나 템플릿 정보를 관리합니다."
+          actions={(
+            <div className="button-cluster">
+              <button type="button" onClick={resetToDefaultTemplate}>기본 복구</button>
+              <button type="button" className="primary small" onClick={saveTemplate}>저장</button>
+            </div>
+          )}
+        />
         <div className="template-meta-grid">
           <label>
             이름
