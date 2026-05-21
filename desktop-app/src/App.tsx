@@ -1,134 +1,17 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { AttendanceEntry, Child, ChildAttendanceEntry, DashboardSnapshot, ImportSummary, InitialImportPayload, JournalEntry, JournalTemplate, Person } from './types';
+import { flatMenu, menuGroups, yearOptions } from './app/navigation';
+import type { ViewKey } from './app/navigation';
 import { deleteChildAttendanceEntry, getDataProviderLabel, loadDashboardSnapshot, loadJournalTemplates, rebuildDedupedChildrenFromLocalData, replaceLocalDatabaseFromImport, saveChildAttendanceEntries, saveChildRecord, saveGeneratedJournals, saveJournalEntry, saveJournalTemplate } from './data/dataProvider';
 import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport';
 import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplate } from './data/journalTemplates';
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
-
-type ViewKey =
-  | 'dashboard'
-  | 'journalStats'
-  | 'journalCreate'
-  | 'journalPrint'
-  | 'journalQuickEdit'
-  | 'templateManager'
-  | 'staffRoster'
-  | 'nonStaffRoster'
-  | 'children'
-  | 'childAttendance'
-  | 'programPlans'
-  | 'programJournals'
-  | 'programEvaluations'
-  | 'import'
-  | 'telegram'
-  | 'settings'
-  | 'export';
-
-interface MenuItem {
-  key: ViewKey;
-  label: string;
-}
-
-const menuGroups: Array<{ title: string; items: MenuItem[] }> = [
-  {
-    title: '기본',
-    items: [
-      { key: 'dashboard', label: '대시보드' }
-    ]
-  },
-  {
-    title: '운영일지',
-    items: [
-      { key: 'journalPrint', label: '운영일지' },
-      { key: 'templateManager', label: '템플릿 만들기' }
-    ]
-  },
-  {
-    title: '인력',
-    items: [
-      { key: 'staffRoster', label: '종사자 현황' },
-      { key: 'nonStaffRoster', label: '비종사자 현황' }
-    ]
-  },
-  {
-    title: '아동',
-    items: [
-      { key: 'children', label: '아동 목록' },
-      { key: 'childAttendance', label: '아동 출결대장' }
-    ]
-  },
-  {
-    title: '프로그램',
-    items: [
-      { key: 'programPlans', label: '프로그램 계획' },
-      { key: 'programJournals', label: '프로그램 일지' },
-      { key: 'programEvaluations', label: '프로그램 평가' }
-    ]
-  },
-  {
-    title: '관리',
-    items: [
-      { key: 'import', label: '초기 이관' },
-      { key: 'telegram', label: '텔레그램' },
-      { key: 'settings', label: '기본 설정' },
-      { key: 'export', label: '내보내기' }
-    ]
-  }
-];
-
-const flatMenu = menuGroups.flatMap((group) => group.items);
-
-const yearOptions = [2024, 2025, 2026];
+import { useMediaQuery } from './shared/hooks/useMediaQuery';
+import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 
 function safeRows<T>(rows: T[] | null | undefined): T[] {
   return Array.isArray(rows) ? rows : [];
-}
-
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia(query).matches;
-  });
-
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    const update = () => setMatches(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, [query]);
-
-  return matches;
-}
-
-class ViewErrorBoundary extends Component<
-  { viewKey: string; children: ReactNode },
-  { message: string }
-> {
-  state = { message: '' };
-
-  static getDerivedStateFromError(error: unknown) {
-    return { message: error instanceof Error ? error.message : String(error) };
-  }
-
-  componentDidUpdate(previous: { viewKey: string }) {
-    if (previous.viewKey !== this.props.viewKey && this.state.message) {
-      this.setState({ message: '' });
-    }
-  }
-
-  render() {
-    if (this.state.message) {
-      return (
-        <div className="panel empty-state">
-          화면을 여는 중 문제가 생겼습니다. 새로고침 후 다시 눌러주세요.
-          <span className="error-detail">{this.state.message}</span>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 function StatCard({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
