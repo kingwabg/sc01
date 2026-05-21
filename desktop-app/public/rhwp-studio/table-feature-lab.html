@@ -25,7 +25,7 @@
     <h1>RHWP 표 기능 점검</h1>
     <p>오른쪽 RHWP에 실제 네이티브 표를 넣고, API와 메뉴 상태를 분리해서 확인합니다.</p>
     <div class="tools">
-      <button id="rangeCheck" class="tool-button" type="button">셀 범위 선택 점검</button>
+      <button id="rangeCheck" class="tool-button" type="button">셀 범위 선택 시작</button>
     </div>
     <table>
       <thead><tr><th>기능</th><th>상태</th><th>근거</th></tr></thead>
@@ -90,6 +90,7 @@
     'table:insert-col-right',
     'table:delete-row',
     'table:delete-col',
+    'table:cell-select-range',
     'table:cell-merge',
     'table:cell-split',
     'table:cell-height-equal',
@@ -118,7 +119,7 @@
       setFeature('표/셀 속성', cellProps ? 'ok' : 'warn', cellProps ? '셀 속성 메뉴 활성' : '커서는 셀 내부이나 셀 속성 메뉴 확인 필요');
       setFeature('줄/칸 추가', canInsertRows && canInsertCols ? 'ok' : 'warn', canInsertRows && canInsertCols ? '행/열 추가 명령 활성' : '일부 행/열 추가 명령 확인 필요');
       setFeature('줄/칸 삭제', canDelete ? 'ok' : 'warn', canDelete ? '행/열 삭제 명령 활성' : '삭제 명령은 별도 선택 상태 확인 필요');
-      setFeature('셀 병합', canMerge && cellSelection.isMultiCell ? 'ok' : 'warn', canMerge && cellSelection.isMultiCell ? `셀 범위 선택 활성 (${selectionRange})` : '셀 범위 선택 점검 버튼 또는 F5 범위 선택 필요');
+      setFeature('셀 병합', canMerge && cellSelection.isMultiCell ? 'ok' : 'warn', canMerge && cellSelection.isMultiCell ? `셀 범위 선택 활성 (${selectionRange})` : '셀 범위 선택 시작 후 표 안 다른 셀을 클릭하세요');
       setFeature('셀 나누기', canSplit ? 'ok' : 'warn', canSplit ? '셀 나누기 명령 활성' : '셀 나누기 명령은 별도 조건 확인 필요');
       setFeature('셀 높이/너비 같게', canEqualSize ? 'ok' : 'warn', canEqualSize ? '높이/너비 같게 명령 활성' : '높이/너비 같게 명령 확인 필요');
       setFeature('계산식', canFormula ? 'ok' : 'warn', canFormula ? '계산식 명령 활성' : '계산식 명령 확인 필요');
@@ -129,7 +130,7 @@
     setFeature('표/셀 속성', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('줄/칸 추가', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('줄/칸 삭제', 'warn', '셀 내부 포커스 후 자동 판정');
-    setFeature('셀 병합', 'warn', '셀 내부 포커스 후 셀 범위 선택 점검');
+    setFeature('셀 병합', 'warn', '셀 내부 포커스 후 셀 범위 선택 시작');
     setFeature('셀 나누기', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('셀 높이/너비 같게', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('계산식', 'warn', '셀 내부 포커스 후 자동 판정');
@@ -148,7 +149,7 @@
     if (result.result) {
       applyFocusContext(result.result, '셀 범위 선택 점검');
       meta.textContent = JSON.stringify({
-        안내: '셀 범위 선택 점검을 실행했습니다. 병합은 여러 셀이 선택되어야 활성화됩니다.',
+        안내: '셀 범위 선택을 시작했습니다. 오른쪽 표 안 다른 셀을 일반 클릭하면 그 셀까지 범위가 확장됩니다.',
         result: result.result
       }, null, 2);
       return result;
@@ -182,7 +183,7 @@
         <tr><td>셀 내부 포커스</td><td class="warn">점검중</td><td>표 클릭 후 에디터 상태 API로 자동 판정</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>줄/칸 추가</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>줄/칸 삭제</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
-        <tr><td>셀 병합</td><td class="warn">점검중</td><td>F5 셀 범위 선택 후 명령 활성 여부 확인</td><td>왼쪽 셀 범위 선택 점검 버튼으로 확인</td></tr>
+        <tr><td>셀 병합</td><td class="warn">점검중</td><td>F5 셀 범위 선택 후 명령 활성 여부 확인</td><td>셀 범위 선택 시작 후 다른 셀을 일반 클릭</td></tr>
         <tr><td>셀 나누기</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>셀 높이/너비 같게</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>계산식</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
@@ -211,7 +212,7 @@
     setFeature('HWP 내보내기', hwp.result?.length ? 'ok' : 'no', hwp.result?.length ? `${hwp.result.length.toLocaleString()} bytes` : (hwp.error || '실패'));
     const focus = await refreshEditorContext('초기 점검');
     meta.textContent = JSON.stringify({
-      안내: '오른쪽 RHWP 표 셀 안쪽을 클릭하면 셀 내부 포커스/표 메뉴 상태가 자동 갱신됩니다.',
+      안내: '오른쪽 RHWP 표 셀 안쪽을 클릭하면 셀 내부 포커스/표 메뉴 상태가 자동 갱신됩니다. 셀 범위 선택 시작 후 다른 셀을 일반 클릭하면 범위가 바뀝니다.',
       layout,
       focus,
       hwpxBytes: hwpx.result?.length || 0,
