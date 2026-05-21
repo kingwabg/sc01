@@ -250,11 +250,12 @@ features/journal-template/
 - 완료: `src/app/AppShell.tsx`로 사이드바와 본문 레이아웃 껍데기를 `App.tsx` 밖으로 분리
 - 완료: `src/shared/ui/Panel.tsx`로 기본 패널 래퍼를 만들고 대시보드/동일화/내보내기 패널 일부에 적용
 - 완료: `src/shared/ui/PanelTitle.tsx`로 패널 제목/설명/액션 행을 공통화하고 기존 `panel-title-row` 반복을 제거
+- 완료: `src/features/dashboard/DashboardPage.tsx`로 대시보드 화면과 동일화 패널을 기능 폴더로 분리
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage 분리, 82px 접힘 레일 확인
 
 다음 추천 작업:
 
 1. `Toolbar`와 버튼 클러스터 같은 패널 내부 액션 UI를 실제 사용처 기준으로 추출한다.
 2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
-3. `features/dashboard`부터 화면 단위 폴더 분리를 시작한다.
+3. `features/journal-edit` 또는 `features/journal-template`로 다음 화면 단위 분리를 진행한다.
