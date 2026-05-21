@@ -5823,3 +5823,148 @@ body {
     display: flex;
   }
 }
+
+/* Child attendance final responsive polish layer. */
+.child-attendance-workspace .child-attendance-calendar-panel,
+.child-attendance-workspace .child-attendance-editor,
+.child-attendance-workspace .table-card {
+  border-color: #d8e1ee;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, .06);
+}
+
+.child-attendance-workspace .stats-toolbar {
+  align-items: flex-end;
+}
+
+.child-attendance-calendar {
+  grid-template-columns: repeat(7, minmax(78px, 1fr));
+  gap: 7px;
+}
+
+.child-calendar-day {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.child-calendar-day::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #cbd5e1;
+}
+
+.child-calendar-day.present::before {
+  background: #16a34a;
+}
+
+.child-calendar-day.absent::before {
+  background: #ea580c;
+}
+
+.child-calendar-day.official::before,
+.child-calendar-day.substitute::before {
+  background: #2563eb;
+}
+
+.child-calendar-day.other::before {
+  background: #64748b;
+}
+
+.child-calendar-day.selected {
+  outline: 2px solid rgba(37, 99, 235, .72);
+  outline-offset: 2px;
+}
+
+.child-calendar-day span,
+.child-calendar-day em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-attendance-calendar-actions,
+.child-attendance-editor-actions {
+  flex-wrap: wrap;
+}
+
+.child-attendance-editor-grid {
+  grid-template-columns: minmax(180px, .9fr) minmax(150px, .55fr) minmax(150px, .55fr) minmax(240px, 1.2fr);
+}
+
+.child-attendance-editor-actions span {
+  min-width: min(100%, 260px);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .child-attendance-workspace .stats-toolbar,
+  .child-attendance-calendar-head,
+  .table-card-title {
+    align-items: flex-start;
+  }
+
+  .child-attendance-calendar {
+    grid-template-columns: repeat(7, minmax(58px, 1fr));
+    gap: 6px;
+  }
+
+  .child-calendar-day {
+    min-height: 66px;
+    padding: 8px 8px 8px 10px;
+  }
+
+  .child-attendance-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .child-attendance-editor-grid label.wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .child-attendance-calendar-actions,
+  .child-attendance-editor-actions {
+    width: 100%;
+  }
+
+  .child-attendance-calendar-actions select,
+  .child-attendance-calendar-actions button,
+  .child-attendance-editor-actions button {
+    width: 100%;
+  }
+
+  .child-attendance-calendar {
+    grid-template-columns: repeat(7, minmax(38px, 1fr));
+    gap: 4px;
+  }
+
+  .calendar-weekday {
+    min-height: 24px;
+    font-size: 11px;
+  }
+
+  .child-calendar-day {
+    min-height: 58px;
+    gap: 3px;
+    padding: 6px 5px 6px 8px;
+  }
+
+  .child-calendar-day strong {
+    font-size: 13px;
+  }
+
+  .child-calendar-day span,
+  .child-calendar-day em {
+    max-width: 100%;
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+
+  .child-attendance-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
