@@ -253,11 +253,13 @@ features/journal-template/
 - 완료: `src/features/dashboard/DashboardPage.tsx`로 대시보드 화면과 동일화 패널을 기능 폴더로 분리
 - 완료: `src/features/journal-edit/JournalEditPage.tsx`를 추가하고 운영일지 수정 화면 라우팅을 기능 폴더로 연결
 - 완료: `src/shared/ui/document-preview`에 `PreviewModeTabs`, `HwpStylePreview`, `DocumentPreviewMode`를 분리
+- 완료: `src/shared/ui/document-preview/RhwpEditorPane.tsx`를 추가하고 운영일지/템플릿 화면이 공유 RHWP 래퍼를 쓰도록 연결
+- 완료: 병렬 분석으로 `JournalTemplateWorkspace` 분리 의존성 목록을 확인
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage 분리, 문서 미리보기 공통화, 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
 
 다음 추천 작업:
 
 1. `Toolbar`와 버튼 클러스터 같은 패널 내부 액션 UI를 실제 사용처 기준으로 추출한다.
 2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
-3. RHWP 래퍼를 공유 문서 컴포넌트로 분리한 뒤 `features/journal-template` 분리를 진행한다.
+3. `HtmlTemplateEditor`, 템플릿 트리 아이콘, `JournalTemplateWorkspace`를 `features/journal-template`로 분리한다.

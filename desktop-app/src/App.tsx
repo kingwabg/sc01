@@ -17,7 +17,7 @@ import { Panel } from './shared/ui/Panel';
 import { PanelTitle } from './shared/ui/PanelTitle';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
-import { HwpStylePreview, PreviewModeTabs } from './shared/ui/document-preview';
+import { HwpStylePreview, PreviewModeTabs, RhwpEditorPane as SharedRhwpEditorPane } from './shared/ui/document-preview';
 import type { DocumentPreviewMode } from './shared/ui/document-preview';
 
 type SortDirection = 'asc' | 'desc';
@@ -3323,7 +3323,7 @@ function JournalTemplateWorkspace({ snapshot }: { snapshot: DashboardSnapshot })
         ) : previewMode === 'htmlEdit' ? (
           <HtmlTemplateEditor html={templateHtml} onCommit={setTemplateHtml} onSelectCell={selectPreviewCell} />
         ) : previewMode === 'rhwp' ? (
-          <RhwpEditorPane html={templateHtml} onHtmlCommit={setTemplateHtml} defaultHtml={defaultJournalTemplateHtml} />
+          <SharedRhwpEditorPane html={templateHtml} onHtmlCommit={setTemplateHtml} defaultHtml={defaultJournalTemplateHtml} />
         ) : (
           <HwpStylePreview html={renderedHtml} />
         )}
@@ -3837,7 +3837,7 @@ function App() {
         {snapshot && view === 'journalPrint' && (
           <JournalEditPage
             PreviewModeTabs={PreviewModeTabs}
-            RhwpEditorPane={RhwpEditorPane}
+            RhwpEditorPane={SharedRhwpEditorPane}
             snapshot={snapshot}
             onSaved={handleDataChanged}
           />
