@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { AttendanceEntry, Child, ChildAttendanceEntry, DashboardSnapshot, ImportSummary, InitialImportPayload, Person } from './types';
 import { AppShell } from './app/AppShell';
 import { yearOptions } from './app/navigation';
@@ -11,6 +10,7 @@ import { ChildAttendancePage } from './features/child-attendance/ChildAttendance
 import { JournalCreatePage } from './features/journal-create/JournalCreatePage';
 import { JournalEditPage } from './features/journal-edit/JournalEditPage';
 import { JournalTemplatePage } from './features/journal-template/JournalTemplatePage';
+import { PeopleRosterPage } from './features/people-roster/PeopleRosterPage';
 import { ProgramPlansPage } from './features/program-plans/ProgramPlansPage';
 import { StatisticsPage } from './features/statistics/StatisticsPage';
 import { useMediaQuery } from './shared/hooks/useMediaQuery';
@@ -19,10 +19,10 @@ import { EmptyState } from './shared/ui/EmptyState';
 import { Panel } from './shared/ui/Panel';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
+import { compareTableValues, normalizeFilterText, SortableHeader, uniqueFilterOptions, usePersistentColumnWidths } from './shared/ui/data-table';
+import type { SortDirection } from './shared/ui/data-table';
 import { PreviewModeTabs, RhwpEditorPane as SharedRhwpEditorPane } from './shared/ui/document-preview';
 
-type SortDirection = 'asc' | 'desc';
-type PeopleSortKey = 'index' | 'name' | 'role' | 'category' | 'status' | 'startedAt' | 'endedAt' | 'dutyText';
 type ChildSortKey =
   | 'index'
   | 'name'
@@ -44,17 +44,6 @@ type ChildSortKey =
   | 'memo'
   | 'manager'
   | 'kidsId';
-
-const PEOPLE_COLUMN_WIDTHS: Record<PeopleSortKey, number> = {
-  index: 72,
-  name: 150,
-  role: 170,
-  category: 140,
-  status: 120,
-  startedAt: 150,
-  endedAt: 150,
-  dutyText: 320
-};
 
 const CHILD_COLUMN_WIDTHS: Record<ChildSortKey, number> = {
   index: 64,
@@ -78,252 +67,6 @@ const CHILD_COLUMN_WIDTHS: Record<ChildSortKey, number> = {
   manager: 120,
   kidsId: 130
 };
-
-function normalizeFilterText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase();
-}
-
-function compareTableValues(left: unknown, right: unknown) {
-  return String(left ?? '').localeCompare(String(right ?? ''), 'ko-KR', {
-    numeric: true,
-    sensitivity: 'base'
-  });
-}
-
-function uniqueFilterOptions<T>(rows: T[], read: (row: T) => unknown) {
-  const values = new Set<string>();
-  rows.forEach((row) => {
-    const value = String(read(row) ?? '').trim();
-    if (value) values.add(value);
-  });
-  return Array.from(values).sort((a, b) => compareTableValues(a, b));
-}
-
-function loadStoredColumnWidths<Key extends string>(storageKey: string, defaults: Record<Key, number>) {
-  if (typeof window === 'undefined') return defaults;
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw) as Partial<Record<Key, number>>;
-    return Object.keys(defaults).reduce((next, key) => {
-      const typedKey = key as Key;
-      const stored = Number(parsed[typedKey]);
-      next[typedKey] = Number.isFinite(stored) && stored >= 48 ? stored : defaults[typedKey];
-      return next;
-    }, { ...defaults } as Record<Key, number>);
-  } catch {
-    return defaults;
-  }
-}
-
-function usePersistentColumnWidths<Key extends string>(storageName: string, defaults: Record<Key, number>) {
-  const storageKey = `seochang:column-widths:${storageName}`;
-  const [widths, setWidths] = useState<Record<Key, number>>(() => loadStoredColumnWidths(storageKey, defaults));
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(widths));
-    } catch {
-      // localStorage가 잠긴 환경에서는 현재 화면에서만 너비를 유지합니다.
-    }
-  }, [storageKey, widths]);
-
-  const beginResize = (key: Key, event: ReactPointerEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startWidth = widths[key] || defaults[key] || 120;
-    const handleMove = (moveEvent: PointerEvent) => {
-      const nextWidth = Math.min(680, Math.max(48, startWidth + moveEvent.clientX - startX));
-      setWidths((current) => ({ ...current, [key]: nextWidth }));
-    };
-    const handleUp = () => {
-      window.removeEventListener('pointermove', handleMove);
-      document.body.classList.remove('column-resizing');
-    };
-    document.body.classList.add('column-resizing');
-    window.addEventListener('pointermove', handleMove);
-    window.addEventListener('pointerup', handleUp, { once: true });
-  };
-
-  return { widths, beginResize };
-}
-
-function SortableHeader<Key extends string>({
-  label,
-  sortKey,
-  activeKey,
-  direction,
-  className,
-  width,
-  onSort,
-  onResizeStart
-}: {
-  label: string;
-  sortKey: Key;
-  activeKey: Key;
-  direction: SortDirection;
-  className?: string;
-  width?: number;
-  onSort: (key: Key) => void;
-  onResizeStart?: (key: Key, event: ReactPointerEvent<HTMLElement>) => void;
-}) {
-  const active = activeKey === sortKey;
-  return (
-    <th className={['resizable-th', className].filter(Boolean).join(' ')} style={width ? { width, minWidth: width } : undefined}>
-      <button
-        className={`sortable-header-button ${active ? 'active' : ''}`}
-        type="button"
-        onClick={() => onSort(sortKey)}
-        aria-label={`${label} 정렬`}
-      >
-        <span>{label}</span>
-        <span className="sort-indicator">{active ? (direction === 'asc' ? '↑' : '↓') : '↕'}</span>
-      </button>
-      {onResizeStart && (
-        <span
-          className="column-resize-handle"
-          role="separator"
-          aria-label={`${label} 너비 조절`}
-          onPointerDown={(event) => onResizeStart(sortKey, event)}
-        />
-      )}
-    </th>
-  );
-}
-
-function PeopleTable({ rows, title = '인력 데이터', storageKey = 'people' }: { rows: Person[]; title?: string; storageKey?: string }) {
-  const [query, setQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('전체');
-  const [statusFilter, setStatusFilter] = useState('전체');
-  const [roleFilter, setRoleFilter] = useState('전체');
-  const [sortKey, setSortKey] = useState<PeopleSortKey>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const { widths: columnWidths, beginResize: beginColumnResize } = usePersistentColumnWidths<PeopleSortKey>(storageKey, PEOPLE_COLUMN_WIDTHS);
-  const tableMinWidth = Object.values(columnWidths).reduce((sum, width) => sum + width, 0);
-  const categoryOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.category), [rows]);
-  const statusOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.status), [rows]);
-  const roleOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.role), [rows]);
-  const hasFilters = Boolean(query.trim() || categoryFilter !== '전체' || statusFilter !== '전체' || roleFilter !== '전체');
-  const setSort = (nextKey: PeopleSortKey) => {
-    if (nextKey === sortKey) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setSortKey(nextKey);
-    setSortDirection('asc');
-  };
-  const resetFilters = () => {
-    setQuery('');
-    setCategoryFilter('전체');
-    setStatusFilter('전체');
-    setRoleFilter('전체');
-  };
-  const filteredRows = useMemo(() => {
-    const keyword = normalizeFilterText(query);
-    const matchesKeyword = (row: Person) => !keyword || [
-      row.name,
-      row.email,
-      row.role,
-      row.category,
-      row.status,
-      row.startedAt,
-      row.endedAt,
-      row.dutyText
-    ].some((value) => normalizeFilterText(value).includes(keyword));
-    const getSortValue = (row: Person, index: number) => {
-      if (sortKey === 'index') return index + 1;
-      return row[sortKey] ?? '';
-    };
-    return rows
-      .filter((row) => matchesKeyword(row))
-      .filter((row) => categoryFilter === '전체' || row.category === categoryFilter)
-      .filter((row) => statusFilter === '전체' || row.status === statusFilter)
-      .filter((row) => roleFilter === '전체' || row.role === roleFilter)
-      .map((row, index) => ({ row, index }))
-      .sort((left, right) => {
-        const result = compareTableValues(getSortValue(left.row, left.index), getSortValue(right.row, right.index));
-        return sortDirection === 'asc' ? result : -result;
-      })
-      .map(({ row }) => row);
-  }, [rows, query, categoryFilter, statusFilter, roleFilter, sortKey, sortDirection]);
-
-  return (
-    <div className="data-table-shell">
-      <div className="data-table-toolbar">
-        <div>
-          <span className="data-table-eyebrow">OpenStatus 스타일 필터</span>
-          <h2>{title}</h2>
-          <p>{filteredRows.length} / {rows.length}명 표시 중</p>
-        </div>
-        <div className="data-table-controls">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="이름, 직위, 구분, 업무 검색"
-          />
-          <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-            <option value="전체">구분 전체</option>
-            {categoryOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="전체">상태 전체</option>
-            {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-            <option value="전체">직위 전체</option>
-            {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <button className="action-button" type="button" onClick={resetFilters} disabled={!hasFilters}>
-            초기화
-          </button>
-        </div>
-      </div>
-      <div className="data-table-active-filters">
-        <span>정렬: {sortDirection === 'asc' ? '오름차순' : '내림차순'}</span>
-        {query.trim() && <span>검색어: {query.trim()}</span>}
-        {categoryFilter !== '전체' && <span>구분: {categoryFilter}</span>}
-        {statusFilter !== '전체' && <span>상태: {statusFilter}</span>}
-        {roleFilter !== '전체' && <span>직위: {roleFilter}</span>}
-      </div>
-      <div className="table-card data-table-card">
-      <table style={{ minWidth: tableMinWidth }}>
-        <thead>
-          <tr>
-            <SortableHeader label="번호" sortKey="index" activeKey={sortKey} direction={sortDirection} width={columnWidths.index} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="이름" sortKey="name" activeKey={sortKey} direction={sortDirection} width={columnWidths.name} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="직위/역할" sortKey="role" activeKey={sortKey} direction={sortDirection} width={columnWidths.role} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="구분" sortKey="category" activeKey={sortKey} direction={sortDirection} width={columnWidths.category} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="상태" sortKey="status" activeKey={sortKey} direction={sortDirection} width={columnWidths.status} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="시작일" sortKey="startedAt" activeKey={sortKey} direction={sortDirection} width={columnWidths.startedAt} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="종료일" sortKey="endedAt" activeKey={sortKey} direction={sortDirection} width={columnWidths.endedAt} onSort={setSort} onResizeStart={beginColumnResize} />
-            <SortableHeader label="업무/활동내용" sortKey="dutyText" activeKey={sortKey} direction={sortDirection} width={columnWidths.dutyText} onSort={setSort} onResizeStart={beginColumnResize} />
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.map((row, index) => (
-            <tr key={row.id}>
-              <td>{index + 1}</td>
-              <td className="name-cell">{row.name}</td>
-              <td>{row.role || '-'}</td>
-              <td><span className="pill">{row.category || '-'}</span></td>
-              <td><span className="pill green">{row.status || '-'}</span></td>
-              <td>{row.startedAt || '-'}</td>
-              <td>{row.endedAt || '-'}</td>
-              <td className="muted">{row.dutyText || '-'}</td>
-            </tr>
-          ))}
-          {!filteredRows.length && (
-            <tr>
-              <td colSpan={8} className="empty-row">조건에 맞는 데이터가 없습니다.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      </div>
-    </div>
-  );
-}
 
 function ChildDetailModal({
   child,
@@ -1173,7 +916,7 @@ function App() {
         {view === 'import' && <ImportWizard snapshot={snapshot} onImported={handleImported} />}
 
         {snapshot && (view === 'staffRoster' || view === 'nonStaffRoster') && (
-          <PeopleTable
+          <PeopleRosterPage
             rows={selectedRows}
             title={view === 'nonStaffRoster' ? '비종사자 데이터' : '종사자 데이터'}
             storageKey={view === 'nonStaffRoster' ? 'non-staff' : 'staff'}
