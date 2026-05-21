@@ -9,6 +9,7 @@ import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplat
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 import { useMediaQuery } from './shared/hooks/useMediaQuery';
 import { safeRows } from './shared/lib/arrays';
+import { EmptyState } from './shared/ui/EmptyState';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 
@@ -2002,9 +2003,9 @@ function JournalEditWorkspace({
   if (!journals.length) {
     return (
       <section className="journal-edit-workspace">
-        <div className="panel empty-state">
+        <EmptyState variant="panel">
           운영일지 데이터가 아직 없습니다. 먼저 일지 생성에서 날짜를 만들어 주세요.
-        </div>
+        </EmptyState>
       </section>
     );
   }
@@ -4010,7 +4011,7 @@ function App() {
           </div>
         </header>
 
-        {!snapshot && <div className="empty-state">데이터를 불러오는 중입니다.</div>}
+        {!snapshot && <EmptyState>데이터를 불러오는 중입니다.</EmptyState>}
         {snapshot && <StatusStrip snapshot={snapshot} providerLabel={providerLabel} />}
 
         <ViewErrorBoundary viewKey={view}>
@@ -4041,7 +4042,7 @@ function App() {
                         <span>{journal.manager} · 현원 {journal.enrolled} · 출석 {journal.presentChildren}</span>
                       </div>
                     ))}
-                    {!safeRows(snapshot.journals).length && <div className="empty-inline">운영일지 데이터가 아직 없습니다.</div>}
+                    {!safeRows(snapshot.journals).length && <EmptyState variant="inline">운영일지 데이터가 아직 없습니다.</EmptyState>}
                   </div>
                 </div>
               </section>

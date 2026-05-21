@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ReactNode } from 'react';
+import { EmptyState } from './EmptyState';
 
 export class ViewErrorBoundary extends Component<
   { viewKey: string; children: ReactNode },
@@ -20,10 +21,10 @@ export class ViewErrorBoundary extends Component<
   render() {
     if (this.state.message) {
       return (
-        <div className="panel empty-state">
+        <EmptyState variant="panel">
           화면을 여는 중 문제가 생겼습니다. 새로고침 후 다시 눌러주세요.
           <span className="error-detail">{this.state.message}</span>
-        </div>
+        </EmptyState>
       );
     }
     return this.props.children;
