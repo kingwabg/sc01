@@ -15,12 +15,18 @@
   .warn { color: #b45309; font-weight: 800; }
   .no { color: #b91c1c; font-weight: 800; }
   .meta { margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 12px; white-space: pre-wrap; }
+  .tools { display: flex; gap: 8px; margin: 0 0 12px; }
+  .tool-button { border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; color: #0f172a; font-weight: 800; padding: 8px 10px; cursor: pointer; }
+  .tool-button:hover { background: #eaf2ff; border-color: #93c5fd; }
   iframe { width: 100%; height: 100%; border: 0; background: white; }
 </style>
 <div class="lab">
   <section class="panel report">
     <h1>RHWP 표 기능 점검</h1>
     <p>오른쪽 RHWP에 실제 네이티브 표를 넣고, API와 메뉴 상태를 분리해서 확인합니다.</p>
+    <div class="tools">
+      <button id="rangeCheck" class="tool-button" type="button">셀 범위 선택 점검</button>
+    </div>
     <table>
       <thead><tr><th>기능</th><th>상태</th><th>근거</th></tr></thead>
       <tbody id="rows"></tbody>
@@ -84,7 +90,8 @@
     'table:insert-col-right',
     'table:delete-row',
     'table:delete-col',
-    'table:split-cell',
+    'table:cell-merge',
+    'table:cell-split',
     'table:cell-height-equal',
     'table:cell-width-equal',
     'table:formula'
@@ -97,15 +104,21 @@
     const canInsertRows = Boolean(commands['table:insert-row-above'] && commands['table:insert-row-below']);
     const canInsertCols = Boolean(commands['table:insert-col-left'] && commands['table:insert-col-right']);
     const canDelete = Boolean(commands['table:delete-row'] || commands['table:delete-col']);
-    const canSplit = Boolean(commands['table:split-cell']);
+    const canMerge = Boolean(commands['table:cell-merge']);
+    const canSplit = Boolean(commands['table:cell-split']);
     const canEqualSize = Boolean(commands['table:cell-height-equal'] && commands['table:cell-width-equal']);
     const canFormula = Boolean(commands['table:formula']);
+    const cellSelection = state?.cellSelection || {};
+    const selectionRange = cellSelection.range
+      ? `${cellSelection.range.startRow},${cellSelection.range.startCol} → ${cellSelection.range.endRow},${cellSelection.range.endCol}`
+      : '범위 없음';
 
     if (inTable) {
       setFeature('셀 내부 포커스', 'ok', `${source}: 현재 커서가 표 셀 내부 상태`);
       setFeature('표/셀 속성', cellProps ? 'ok' : 'warn', cellProps ? '셀 속성 메뉴 활성' : '커서는 셀 내부이나 셀 속성 메뉴 확인 필요');
       setFeature('줄/칸 추가', canInsertRows && canInsertCols ? 'ok' : 'warn', canInsertRows && canInsertCols ? '행/열 추가 명령 활성' : '일부 행/열 추가 명령 확인 필요');
       setFeature('줄/칸 삭제', canDelete ? 'ok' : 'warn', canDelete ? '행/열 삭제 명령 활성' : '삭제 명령은 별도 선택 상태 확인 필요');
+      setFeature('셀 병합', canMerge && cellSelection.isMultiCell ? 'ok' : 'warn', canMerge && cellSelection.isMultiCell ? `셀 범위 선택 활성 (${selectionRange})` : '셀 범위 선택 점검 버튼 또는 F5 범위 선택 필요');
       setFeature('셀 나누기', canSplit ? 'ok' : 'warn', canSplit ? '셀 나누기 명령 활성' : '셀 나누기 명령은 별도 조건 확인 필요');
       setFeature('셀 높이/너비 같게', canEqualSize ? 'ok' : 'warn', canEqualSize ? '높이/너비 같게 명령 활성' : '높이/너비 같게 명령 확인 필요');
       setFeature('계산식', canFormula ? 'ok' : 'warn', canFormula ? '계산식 명령 활성' : '계산식 명령 확인 필요');
@@ -116,6 +129,7 @@
     setFeature('표/셀 속성', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('줄/칸 추가', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('줄/칸 삭제', 'warn', '셀 내부 포커스 후 자동 판정');
+    setFeature('셀 병합', 'warn', '셀 내부 포커스 후 셀 범위 선택 점검');
     setFeature('셀 나누기', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('셀 높이/너비 같게', 'warn', '셀 내부 포커스 후 자동 판정');
     setFeature('계산식', 'warn', '셀 내부 포커스 후 자동 판정');
@@ -129,6 +143,20 @@
     }
     return ctx;
   }
+  async function runRangeSelectionCheck() {
+    const result = await request('startCellRangeSelection', { deltaRow: 0, deltaCol: 1, commandIds: tableCommandIds }, 8000);
+    if (result.result) {
+      applyFocusContext(result.result, '셀 범위 선택 점검');
+      meta.textContent = JSON.stringify({
+        안내: '셀 범위 선택 점검을 실행했습니다. 병합은 여러 셀이 선택되어야 활성화됩니다.',
+        result: result.result
+      }, null, 2);
+      return result;
+    }
+    setFeature('셀 병합', 'warn', result.error || '셀 범위 선택 API 응답 실패');
+    return result;
+  }
+  rangeCheck.addEventListener('click', () => runRangeSelectionCheck());
   const html = `
     <style>
       body { font-family: "Malgun Gothic", sans-serif; font-size: 9.5pt; }
@@ -154,7 +182,7 @@
         <tr><td>셀 내부 포커스</td><td class="warn">점검중</td><td>표 클릭 후 에디터 상태 API로 자동 판정</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>줄/칸 추가</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>줄/칸 삭제</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
-        <tr><td>셀 병합</td><td class="no">불가</td><td>셀 선택 모드가 안정적으로 잡히지 않음</td><td>F5 셀 선택/범위 선택 흐름 점검</td></tr>
+        <tr><td>셀 병합</td><td class="warn">점검중</td><td>F5 셀 범위 선택 후 명령 활성 여부 확인</td><td>왼쪽 셀 범위 선택 점검 버튼으로 확인</td></tr>
         <tr><td>셀 나누기</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>셀 높이/너비 같게</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
         <tr><td>계산식</td><td class="warn">점검중</td><td>셀 내부 포커스 후 명령 활성 여부 확인</td><td>오른쪽 표 셀 안쪽 클릭 후 확인</td></tr>
