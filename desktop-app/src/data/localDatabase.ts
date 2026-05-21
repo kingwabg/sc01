@@ -219,6 +219,22 @@ export async function initializeDatabase() {
   }
 }
 
+async function runSqliteTransaction<T>(db: DatabaseLike, task: () => Promise<T>): Promise<T> {
+  await db.execute('BEGIN IMMEDIATE TRANSACTION');
+  try {
+    const result = await task();
+    await db.execute('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      await db.execute('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('SQLite rollback failed', rollbackError);
+    }
+    throw error;
+  }
+}
+
 const defaultSettings: AppSettings = {
   initialized: false,
   sourceSpreadsheetId: '',
@@ -890,50 +906,52 @@ export async function replaceLocalDatabaseFromImport(
   const journals = (payload.journals || []).map(normalizeJournal).filter((journal) => journal.date);
 
   if (isTauriRuntime()) {
-    await db.execute('DELETE FROM attendance');
-    await db.execute('DELETE FROM journals');
-    await db.execute('DELETE FROM people');
-    if (hasChildPayload) {
-      await db.execute('DELETE FROM child_attendance');
-      await db.execute('DELETE FROM children');
-    }
-    for (const person of people) {
-      await db.execute(
-        `INSERT INTO people (id, kind, name, role, category, status, started_at, ended_at, email, duty_text, sync_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'synced')`,
-        [person.id, person.kind, person.name, person.role, person.category, person.status, person.startedAt, person.endedAt || '', person.email || '', person.dutyText || '']
-      );
-    }
-    for (const item of attendance) {
-      await db.execute(
-        `INSERT OR REPLACE INTO attendance (id, person_id, person_kind, date, year_month, status, memo, synced_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [item.id, item.personId, item.personKind, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'imported']
-      );
-    }
-    if (hasChildPayload) {
-      for (const child of children) {
+    await runSqliteTransaction(db, async () => {
+      await db.execute('DELETE FROM attendance');
+      await db.execute('DELETE FROM journals');
+      await db.execute('DELETE FROM people');
+      if (hasChildPayload) {
+        await db.execute('DELETE FROM child_attendance');
+        await db.execute('DELETE FROM children');
+      }
+      for (const person of people) {
         await db.execute(
-          `INSERT INTO children (${childInsertColumns}, sync_status)
-           VALUES (${childInsertPlaceholders}, 'synced')`,
-          childBindValues(child)
+          `INSERT INTO people (id, kind, name, role, category, status, started_at, ended_at, email, duty_text, sync_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'synced')`,
+          [person.id, person.kind, person.name, person.role, person.category, person.status, person.startedAt, person.endedAt || '', person.email || '', person.dutyText || '']
         );
       }
-      for (const item of childAttendance) {
+      for (const item of attendance) {
         await db.execute(
-          `INSERT OR REPLACE INTO child_attendance (id, child_id, date, year_month, status, memo, synced_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'imported']
+          `INSERT OR REPLACE INTO attendance (id, person_id, person_kind, date, year_month, status, memo, synced_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [item.id, item.personId, item.personKind, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'imported']
         );
       }
-    }
-    for (const journal of journals) {
-      await db.execute(
-        `INSERT OR REPLACE INTO journals (${journalInsertColumns})
-         VALUES (${journalInsertPlaceholders})`,
-        journalBindValues(journal, 'synced')
-      );
-    }
+      if (hasChildPayload) {
+        for (const child of children) {
+          await db.execute(
+            `INSERT INTO children (${childInsertColumns}, sync_status)
+             VALUES (${childInsertPlaceholders}, 'synced')`,
+            childBindValues(child)
+          );
+        }
+        for (const item of childAttendance) {
+          await db.execute(
+            `INSERT OR REPLACE INTO child_attendance (id, child_id, date, year_month, status, memo, synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'imported']
+          );
+        }
+      }
+      for (const journal of journals) {
+        await db.execute(
+          `INSERT OR REPLACE INTO journals (${journalInsertColumns})
+           VALUES (${journalInsertPlaceholders})`,
+          journalBindValues(journal, 'synced')
+        );
+      }
+    });
   } else {
     await db.execute('replace:people' + JSON.stringify(people));
     await db.execute('replace:attendance' + JSON.stringify(attendance));
@@ -1119,22 +1137,24 @@ export async function rebuildDedupedChildrenFromLocalData(): Promise<{ before: n
   const deduped = dedupeChildrenAndAttendance(existingChildren, existingChildAttendance);
 
   if (isTauriRuntime()) {
-    await db.execute('DELETE FROM child_attendance');
-    await db.execute('DELETE FROM children');
-    for (const child of deduped.children) {
-      await db.execute(
-        `INSERT INTO children (${childInsertColumns}, sync_status)
-         VALUES (${childInsertPlaceholders}, 'synced')`,
-        childBindValues(child)
-      );
-    }
-    for (const item of deduped.childAttendance) {
-      await db.execute(
-        `INSERT OR REPLACE INTO child_attendance (id, child_id, date, year_month, status, memo, synced_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'deduped']
-      );
-    }
+    await runSqliteTransaction(db, async () => {
+      await db.execute('DELETE FROM child_attendance');
+      await db.execute('DELETE FROM children');
+      for (const child of deduped.children) {
+        await db.execute(
+          `INSERT INTO children (${childInsertColumns}, sync_status)
+           VALUES (${childInsertPlaceholders}, 'synced')`,
+          childBindValues(child)
+        );
+      }
+      for (const item of deduped.childAttendance) {
+        await db.execute(
+          `INSERT OR REPLACE INTO child_attendance (id, child_id, date, year_month, status, memo, synced_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'deduped']
+        );
+      }
+    });
   } else {
     await db.execute('replace:children' + JSON.stringify(deduped.children));
     await db.execute('replace:childAttendance' + JSON.stringify(deduped.childAttendance));
