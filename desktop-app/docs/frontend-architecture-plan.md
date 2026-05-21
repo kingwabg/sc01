@@ -243,11 +243,13 @@ features/journal-template/
 - 완료: `src/shared/ui/StatCard.tsx`로 통계 카드 공통 UI 분리
 - 완료: `src/shared/ui/EmptyState.tsx`로 빈 상태 표시 공통 UI 분리
 - 완료: `src/shared/lib/arrays.ts`로 배열 안전 처리 유틸 분리
+- 완료: 사이드바 브랜드 영역, 데이터 상태 뱃지, 활성 그룹 표시, 하단 액션 활성 상태를 서비스형 관리자 UI에 맞춰 개선
+- 완료: 좁은 화면에서도 사이드바 접기가 실제로 메뉴/하단 액션을 숨기도록 반응형 동작 보정
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 펼침/접힘 확인
 
 다음 추천 작업:
 
-1. `Panel`, `EmptyState`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
+1. `Panel`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
 2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
 3. `PeopleTable` 또는 `ChildrenTable` 중 하나를 첫 번째 feature 폴더로 이동한다.

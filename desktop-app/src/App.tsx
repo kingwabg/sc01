@@ -3955,7 +3955,10 @@ function App() {
           <div className="brand-copy">
             <span className="brand-role">OPERATIONS</span>
             <strong>서창 운영관리</strong>
-            <span>{providerLabel}</span>
+            <span className="provider-pill">
+              <span className="provider-dot" aria-hidden="true" />
+              {providerLabel}
+            </span>
           </div>
           <button
             type="button"
@@ -3968,30 +3971,47 @@ function App() {
           </button>
         </div>
         <nav className="sidebar-nav">
-          {menuGroups.map((group) => (
-            <div className="nav-group" key={group.title}>
-              <span>{group.title}</span>
-              {group.items.map((item) => (
-                <button
-                  key={item.key}
-                  className={view === item.key ? 'active' : ''}
-                  type="button"
-                  onClick={() => setView(item.key)}
-                  title={item.label}
-                >
-                  <NavIcon viewKey={item.key} />
-                  <span className="nav-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+          {menuGroups.map((group) => {
+            const groupActive = group.items.some((item) => item.key === view);
+            return (
+              <div className={`nav-group ${groupActive ? 'is-active' : ''}`} key={group.title}>
+                <span>
+                  {group.title}
+                  <small>{group.items.length}</small>
+                </span>
+                {group.items.map((item) => (
+                  <button
+                    key={item.key}
+                    aria-current={view === item.key ? 'page' : undefined}
+                    className={view === item.key ? 'active' : ''}
+                    type="button"
+                    onClick={() => setView(item.key)}
+                    title={item.label}
+                  >
+                    <NavIcon viewKey={item.key} />
+                    <span className="nav-label">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-footer">
-          <button type="button" title="기본 설정" onClick={() => setView('settings')}>
+          <button
+            type="button"
+            className={view === 'settings' ? 'active' : ''}
+            title="기본 설정"
+            onClick={() => setView('settings')}
+          >
             <span className="sidebar-footer-icon">?</span>
             <span>기본 설정</span>
           </button>
-          <button type="button" className="danger" title="내보내기" onClick={() => setView('export')}>
+          <button
+            type="button"
+            className={`danger ${view === 'export' ? 'active' : ''}`}
+            title="내보내기"
+            onClick={() => setView('export')}
+          >
             <span className="sidebar-footer-icon">↗</span>
             <span>내보내기</span>
           </button>
