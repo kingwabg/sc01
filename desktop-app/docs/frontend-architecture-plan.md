@@ -247,11 +247,12 @@ features/journal-template/
 - 완료: 사이드바 접힘 상태를 82px 아이콘 레일로 정리하고, 좁은 화면에서도 본문이 오른쪽에 붙도록 보정
 - 완료: `src/app/AppSidebar.tsx`로 사이드바 마크업과 아이콘 렌더링을 분리
 - 완료: 상단바를 제거하고 본문이 상태 스트립과 화면 콘텐츠부터 바로 시작하도록 정리
+- 완료: `src/app/AppShell.tsx`로 사이드바와 본문 레이아웃 껍데기를 `App.tsx` 밖으로 분리
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 템플릿 만들기/RHWP iframe, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, 82px 접힘 레일 확인
 
 다음 추천 작업:
 
-1. `AppShell`을 분리해 사이드바와 상단바, 본문 영역을 `App.tsx` 밖으로 꺼낸다.
-2. `Panel`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
-3. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
+1. `Panel`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
+2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
+3. `features/dashboard`부터 화면 단위 폴더 분리를 시작한다.
