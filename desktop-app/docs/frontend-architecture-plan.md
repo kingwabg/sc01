@@ -258,6 +258,7 @@ features/journal-template/
 - 완료: `src/features/journal-template/JournalTemplatePage.tsx`로 템플릿 만들기 화면, HTML 템플릿 편집기, 템플릿 트리 아이콘을 기능 폴더로 분리
 - 완료: `src/features/child-attendance/ChildAttendancePage.tsx`로 아동 출결대장 화면과 저장/삭제 UI 흐름을 기능 폴더로 분리
 - 완료: `src/features/statistics/StatisticsPage.tsx`로 운영 통계 화면을 기능 폴더로 분리
+- 완료: `src/features/journal-create/JournalCreatePage.tsx`로 일지 생성 화면과 누락 운영일 생성 계산을 기능 폴더로 분리
 - 검증: `npm run build` 통과
 - 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 아동 출결대장 화면, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage/JournalTemplatePage/ChildAttendancePage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
 
@@ -265,4 +266,4 @@ features/journal-template/
 
 1. `Toolbar`와 버튼 클러스터 같은 패널 내부 액션 UI를 실제 사용처 기준으로 추출한다.
 2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
-3. 프로그램 계획 화면 또는 일지 생성 화면을 다음 기능 폴더로 분리한다.
+3. 프로그램 계획 화면을 다음 기능 폴더로 분리한다.
