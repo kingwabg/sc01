@@ -8,8 +8,7 @@ import { useMediaQuery } from '../../shared/hooks/useMediaQuery';
 import { safeRows } from '../../shared/lib/arrays';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { PanelTitle } from '../../shared/ui/PanelTitle';
-
-type DocumentPreviewMode = 'html' | 'htmlEdit' | 'rhwp';
+import type { DocumentPreviewMode } from '../../shared/ui/document-preview';
 
 type PreviewModeTabsComponent = ComponentType<{
   editable?: boolean;

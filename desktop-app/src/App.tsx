@@ -17,6 +17,8 @@ import { Panel } from './shared/ui/Panel';
 import { PanelTitle } from './shared/ui/PanelTitle';
 import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
+import { HwpStylePreview, PreviewModeTabs } from './shared/ui/document-preview';
+import type { DocumentPreviewMode } from './shared/ui/document-preview';
 
 type SortDirection = 'asc' | 'desc';
 type PeopleSortKey = 'index' | 'name' | 'role' | 'category' | 'status' | 'startedAt' | 'endedAt' | 'dutyText';
@@ -1286,52 +1288,6 @@ function createJournalDraft(journal?: JournalEntry): JournalEntry {
   };
 }
 
-type DocumentPreviewMode = 'html' | 'htmlEdit' | 'rhwp';
-
-function PreviewModeTabs({
-  value,
-  onChange,
-  editable = false
-}: {
-  value: DocumentPreviewMode;
-  onChange: (value: DocumentPreviewMode) => void;
-  editable?: boolean;
-}) {
-  return (
-    <div className="document-preview-tabs" role="tablist" aria-label="문서 미리보기 방식">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === 'html'}
-        className={value === 'html' ? 'active' : ''}
-        onClick={() => onChange('html')}
-      >
-        미리보기
-      </button>
-      {editable && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={value === 'htmlEdit'}
-          className={value === 'htmlEdit' ? 'active' : ''}
-          onClick={() => onChange('htmlEdit')}
-        >
-          문서 편집
-        </button>
-      )}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === 'rhwp'}
-        className={value === 'rhwp' ? 'active' : ''}
-        onClick={() => onChange('rhwp')}
-      >
-        RHWP 보기
-      </button>
-    </div>
-  );
-}
-
 function HtmlTemplateEditor({
   html,
   onCommit,
@@ -1870,21 +1826,6 @@ function RhwpEditorPane({
 
       <div className="rhwp-editor-status">{status}</div>
       {dirty && <div className="rhwp-dirty-status">수정 내용이 있습니다. HTML 저장을 누르면 템플릿에 반영됩니다.</div>}
-    </div>
-  );
-}
-
-function HwpStylePreview({ html }: { html: string }) {
-  return (
-    <div className="hwp-preview-shell">
-      <div className="hwp-preview-body">
-        <div className="hwp-preview-canvas">
-          <div className="hwp-preview-page" dangerouslySetInnerHTML={{ __html: html }} />
-        </div>
-      </div>
-      <div className="hwp-preview-status">
-        <span>HTML 기반 보조 보기</span>
-      </div>
     </div>
   );
 }
