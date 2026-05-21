@@ -8,20 +8,9 @@ import { createHwpxBytesFromHtml, downloadHwpxFromHtml } from './data/hwpxExport
 import { defaultJournalTemplateHtml, journalTemplateFields, renderJournalTemplate } from './data/journalTemplates';
 import { fetchInitialSpreadsheetSnapshot } from './data/sheetSync';
 import { useMediaQuery } from './shared/hooks/useMediaQuery';
+import { safeRows } from './shared/lib/arrays';
+import { StatCard } from './shared/ui/StatCard';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
-
-function safeRows<T>(rows: T[] | null | undefined): T[] {
-  return Array.isArray(rows) ? rows : [];
-}
-
-function StatCard({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
-  return (
-    <div className={`stat-card ${tone || ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 type SortDirection = 'asc' | 'desc';
 type PeopleSortKey = 'index' | 'name' | 'role' | 'category' | 'status' | 'startedAt' | 'endedAt' | 'dutyText';

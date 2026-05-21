@@ -232,3 +232,21 @@ features/journal-template/
 3. `src/shared/ui/ViewErrorBoundary.tsx`를 만든다.
 4. `App.tsx` import를 새 구조로 바꾼다.
 5. 빌드와 브라우저 확인 후 커밋한다.
+
+## 진행 기록
+
+### 2026-05-21
+
+- 완료: `src/app/navigation.ts`로 메뉴/라우트 타입 분리
+- 완료: `src/shared/hooks/useMediaQuery.ts`로 반응형 훅 분리
+- 완료: `src/shared/ui/ViewErrorBoundary.tsx`로 화면 에러 경계 분리
+- 완료: `src/shared/ui/StatCard.tsx`로 통계 카드 공통 UI 분리
+- 완료: `src/shared/lib/arrays.ts`로 배열 안전 처리 유틸 분리
+- 검증: `npm run build` 통과
+- 검증: 브라우저에서 대시보드 통계 카드와 템플릿 만들기/RHWP iframe 확인
+
+다음 추천 작업:
+
+1. `Panel`, `EmptyState`, `Toolbar` 같은 공통 UI를 실제 사용처 기준으로 추출한다.
+2. 테이블 정렬/필터 유틸을 `shared/lib/table.ts`로 분리한다.
+3. `PeopleTable` 또는 `ChildrenTable` 중 하나를 첫 번째 feature 폴더로 이동한다.
