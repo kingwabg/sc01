@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-05-21 21:22:26 +09:00
+Last updated: 2026-05-21 21:30:02 +09:00
 
 This file is the durable memory for the Seochang operations project. It exists so a new AI thread can continue without losing the hard-won context from earlier work.
 
@@ -82,6 +82,22 @@ Recommend a new thread when any of these happen:
 - A commit has been pushed and the next task is a new phase.
 - The user asks "다음은?" after a large task.
 
+## Fresh Thread Startup
+
+When a new thread starts, read `AGENTS.md` and this file first. Then run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop-app\scripts\bootstrap-check.ps1
+```
+
+For a full build check, run the same script with `-Build`.
+
+Current note:
+
+- Fast bootstrap check is expected to complete even when warnings exist.
+- If `-Build` fails at the RHWP guard, inspect `desktop-app/scripts/check-rhwp-boundary-guard.mjs` and the active bundle referenced by `desktop-app/public/rhwp-studio/index.html`.
+- As of this update, the active RHWP bundle has `table:cell-select-range`, but the table boundary clamp markers are not present in that active bundle.
+
 ## Handoff Template
 
 Use this when recommending a new thread:
@@ -105,4 +121,3 @@ Use this when recommending a new thread:
 
 다음 작업:
 ```
-

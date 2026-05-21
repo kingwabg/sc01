@@ -2,6 +2,12 @@
 
 This repository is a long-running Seochang operations project. Before making changes, read `PROJECT_MEMORY.md` first, then open any referenced task-specific docs.
 
+On a fresh thread, run the bootstrap check before substantial work:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop-app\scripts\bootstrap-check.ps1
+```
+
 ## Critical Memory
 
 - The project includes Google Sheets, Google Apps Script, Telegram bot work, and a Tauri + React + SQLite desktop/web app.
@@ -27,4 +33,3 @@ If the conversation becomes long, context feels fuzzy, the same bug has been rev
 - Next recommended action
 
 Keep the project memory durable in files, not only in chat.
-
