@@ -1585,26 +1585,6 @@ function inlineStylesForRhwpImport(sourceHtml: string) {
   }
 }
 
-function fitHtmlTablesToPageWidth(sourceHtml: string) {
-  if (typeof DOMParser === 'undefined') return sourceHtml;
-  const doc = new DOMParser().parseFromString(sourceHtml, 'text/html');
-  doc.body.querySelectorAll('table').forEach((table) => {
-    const element = table as HTMLTableElement;
-    element.style.width = '100%';
-    element.style.maxWidth = '100%';
-    element.style.tableLayout = 'fixed';
-    element.style.borderCollapse = 'collapse';
-    element.style.boxSizing = 'border-box';
-    element.querySelectorAll('td, th').forEach((cell) => {
-      const target = cell as HTMLTableCellElement;
-      target.style.boxSizing = 'border-box';
-      target.style.wordBreak = 'break-all';
-      target.style.overflowWrap = 'anywhere';
-    });
-  });
-  return doc.body.innerHTML;
-}
-
 function RhwpEditorPane({
   html,
   onHtmlCommit,
@@ -1627,8 +1607,6 @@ function RhwpEditorPane({
   const [draftHtml, setDraftHtml] = useState(html);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('RHWP 에디터를 준비하는 중입니다.');
-  const [tableOffsetMm, setTableOffsetMm] = useState({ horizontal: 0, vertical: 0 });
-  const [tableToolStatus, setTableToolStatus] = useState('표 위치/폭 도구를 준비하는 중입니다.');
 
   const resetRhwpEmbeddedCaches = async () => {
     try {
@@ -1855,83 +1833,6 @@ function RhwpEditorPane({
     }, 50);
   };
 
-  const refreshRhwpTableLayout = async (editor = editorRef.current, source = '표 상태') => {
-    if (!editor) {
-      setTableToolStatus('RHWP 에디터를 먼저 불러와 주세요.');
-      return;
-    }
-    try {
-      const result = await requestRhwpEditor(editor, 'getTableLayout', {}, 8000);
-      const tables = Array.isArray(result.tables) ? result.tables : [];
-      const applied = result.applied as { h?: number; v?: number } | undefined;
-      setTableToolStatus(
-        tables.length
-          ? `${source} · 표 ${tables.length}개 · 위치 ${Math.round(Number(applied?.h || 0))}, ${Math.round(Number(applied?.v || 0))}`
-          : `${source} · 문서에서 표를 찾지 못했습니다.`
-      );
-    } catch (error) {
-      setTableToolStatus(`표 상태 확인 실패: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
-
-  const applyRhwpTableOffset = async (nextOffset = tableOffsetMm) => {
-    const editor = editorRef.current;
-    if (!editor) {
-      setTableToolStatus('RHWP 에디터를 먼저 불러와 주세요.');
-      return;
-    }
-    setTableToolStatus('표 위치를 조정하는 중입니다.');
-    try {
-      const result = await requestRhwpEditor(editor, 'moveTables', {
-        horizontalMm: nextOffset.horizontal,
-        verticalMm: nextOffset.vertical
-      }, 12000);
-      const count = Number(result.count || 0);
-      const tableCount = Number(result.tableCount || 0);
-      if (count > 0) {
-        setTableToolStatus(`표 ${count}/${tableCount || count}개 위치를 조정했습니다.`);
-      } else {
-        setTableToolStatus(tableCount > 0 ? '이미 같은 위치입니다.' : '이동할 표를 찾지 못했습니다.');
-      }
-      await refreshRhwpTableLayout(editor, '위치 조정 완료');
-      focusRhwpEditorFrame(editor);
-    } catch (error) {
-      setTableToolStatus(`표 위치 조정 실패: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
-
-  const nudgeRhwpTables = (horizontalDelta: number, verticalDelta: number) => {
-    const nextOffset = {
-      horizontal: Number((tableOffsetMm.horizontal + horizontalDelta).toFixed(1)),
-      vertical: Number((tableOffsetMm.vertical + verticalDelta).toFixed(1))
-    };
-    setTableOffsetMm(nextOffset);
-    applyRhwpTableOffset(nextOffset);
-  };
-
-  const resetRhwpTableOffset = async () => {
-    const editor = editorRef.current;
-    if (!editor) {
-      setTableToolStatus('RHWP 에디터를 먼저 불러와 주세요.');
-      return;
-    }
-    setTableToolStatus('표 위치를 초기화하는 중입니다.');
-    try {
-      setTableOffsetMm({ horizontal: 0, vertical: 0 });
-      await applyRhwpTableOffset({ horizontal: 0, vertical: 0 });
-    } catch (error) {
-      setTableToolStatus(`표 위치 초기화 실패: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
-
-  const fitRhwpTablesToPageWidth = () => {
-    const nextHtml = fitHtmlTablesToPageWidth(draftHtml || html);
-    setTableOffsetMm({ horizontal: 0, vertical: 0 });
-    applyHtmlDraft(nextHtml);
-    setTableToolStatus('표 폭을 100%로 맞춰 다시 불러옵니다.');
-    focusRhwpEditorFrame();
-  };
-
   const loadTemplateIntoEditor = async (editor: RhwpEditorInstance, sourceHtml: string) => {
     const seq = ++loadSeqRef.current;
     const rhwpHtml = inlineStylesForRhwpImport(sourceHtml);
@@ -1941,9 +1842,7 @@ function RhwpEditorPane({
       try {
         const loadUrl = createRhwpNativeSessionUrl(rhwpHtml, '운영일지.hwp');
         await navigateRhwpIframe(editor.element, loadUrl.toString(), 60000);
-        const layout = await waitForRhwpTables(editor, 45000);
-        const tables = Array.isArray(layout.tables) ? layout.tables : [];
-        setTableToolStatus(tables.length ? `운영일지 표 ${tables.length}개 준비됨` : '운영일지 표 로드 상태를 확인해 주세요.');
+        await waitForRhwpTables(editor, 45000);
         await new Promise((resolve) => window.setTimeout(resolve, 350));
         result = {};
       } catch (nativeError) {
@@ -1980,7 +1879,6 @@ function RhwpEditorPane({
       result = await editor.loadFile(bytes, '운영일지.hwpx');
     }
     if (seq !== loadSeqRef.current) return;
-    setTableOffsetMm({ horizontal: 0, vertical: 0 });
     fitRhwpEditorToWidth(editor);
     focusRhwpEditorFrame(editor);
     setStatus(`운영일지 템플릿 로드 완료${result?.pageCount ? ` · ${result.pageCount}쪽` : ''}`);
@@ -2059,38 +1957,6 @@ function RhwpEditorPane({
             HTML 저장
           </button>
         </div>
-      </div>
-
-      <div className="rhwp-table-tools" aria-label="RHWP 표 위치와 폭 조정">
-        <div className="rhwp-table-nudge" aria-label="표 미세 이동">
-          <button type="button" title="위로 1mm" onClick={() => nudgeRhwpTables(0, -1)}>↑</button>
-          <button type="button" title="왼쪽으로 1mm" onClick={() => nudgeRhwpTables(-1, 0)}>←</button>
-          <button type="button" title="오른쪽으로 1mm" onClick={() => nudgeRhwpTables(1, 0)}>→</button>
-          <button type="button" title="아래로 1mm" onClick={() => nudgeRhwpTables(0, 1)}>↓</button>
-        </div>
-        <label>
-          가로
-          <input
-            type="number"
-            step="0.5"
-            value={tableOffsetMm.horizontal}
-            onChange={(event) => setTableOffsetMm((current) => ({ ...current, horizontal: Number(event.target.value) || 0 }))}
-          />
-        </label>
-        <label>
-          세로
-          <input
-            type="number"
-            step="0.5"
-            value={tableOffsetMm.vertical}
-            onChange={(event) => setTableOffsetMm((current) => ({ ...current, vertical: Number(event.target.value) || 0 }))}
-          />
-        </label>
-        <button type="button" onClick={() => applyRhwpTableOffset()}>위치 적용</button>
-        <button type="button" onClick={resetRhwpTableOffset}>위치 초기화</button>
-        <button type="button" onClick={fitRhwpTablesToPageWidth}>표 폭 맞춤</button>
-        <button type="button" onClick={() => editorRef.current && fitRhwpEditorToWidth(editorRef.current)}>보기 폭 맞춤</button>
-        <span>{tableToolStatus}</span>
       </div>
 
       {showHtmlPanel && (
