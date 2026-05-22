@@ -1,6 +1,7 @@
 import type {
   Child,
   ChildAttendanceEntry,
+  ChildYearRecord,
   DashboardSnapshot,
   ImportSummary,
   InitialImportPayload,
@@ -24,6 +25,7 @@ interface DataProvider {
   saveGeneratedJournals(journals: JournalEntry[]): Promise<{ created: number }>;
   saveJournalEntry(journal: JournalEntry): Promise<JournalEntry>;
   saveChildRecord(child: Child): Promise<Child>;
+  saveChildYearRecord(record: ChildYearRecord): Promise<ChildYearRecord>;
   saveChildAttendanceEntries(entries: ChildAttendanceEntry[]): Promise<{ saved: number }>;
   deleteChildAttendanceEntry(childId: string, date: string): Promise<{ deleted: number }>;
   rebuildDedupedChildrenFromLocalData(): Promise<{ before: number; after: number; removed: number }>;
@@ -62,6 +64,7 @@ const localProvider: DataProvider = {
   saveGeneratedJournals: localDb.saveGeneratedJournals,
   saveJournalEntry: localDb.saveJournalEntry,
   saveChildRecord: localDb.saveChildRecord,
+  saveChildYearRecord: localDb.saveChildYearRecord,
   saveChildAttendanceEntries: localDb.saveChildAttendanceEntries,
   deleteChildAttendanceEntry: localDb.deleteChildAttendanceEntry,
   rebuildDedupedChildrenFromLocalData: localDb.rebuildDedupedChildrenFromLocalData,
@@ -124,6 +127,12 @@ const webApiProvider: DataProvider = {
       body: JSON.stringify(child)
     });
   },
+  saveChildYearRecord(record) {
+    return requestJson<ChildYearRecord>('/api/child-year-records', {
+      method: 'POST',
+      body: JSON.stringify(record)
+    });
+  },
   saveChildAttendanceEntries(entries) {
     return requestJson<{ saved: number }>('/api/child-attendance', {
       method: 'POST',
@@ -175,6 +184,10 @@ export function saveJournalEntry(journal: JournalEntry) {
 
 export function saveChildRecord(child: Child) {
   return getProvider().saveChildRecord(child);
+}
+
+export function saveChildYearRecord(record: ChildYearRecord) {
+  return getProvider().saveChildYearRecord(record);
 }
 
 export function saveChildAttendanceEntries(entries: ChildAttendanceEntry[]) {

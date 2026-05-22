@@ -53,6 +53,34 @@ export interface Child {
   memo?: string;
 }
 
+export interface ChildYearRecord {
+  id: string;
+  childId: string;
+  year: number;
+  name: string;
+  gender: string;
+  phone?: string;
+  residentNo?: string;
+  birthDate?: string;
+  age?: string;
+  school: string;
+  grade: string;
+  address?: string;
+  useType?: string;
+  incomeLevel?: string;
+  guardianName?: string;
+  guardianRelation?: string;
+  familyType?: string;
+  guardianContact?: string;
+  vulnerableType?: string;
+  status: string;
+  joinedAt: string;
+  leftAt?: string;
+  manager?: string;
+  kidsId?: string;
+  memo?: string;
+}
+
 export interface ChildAttendanceEntry {
   id: string;
   childId: string;
@@ -99,6 +127,7 @@ export interface DashboardSnapshot {
   staff: Person[];
   nonStaff: Person[];
   children: Child[];
+  childYearRecords: ChildYearRecord[];
   journals: JournalEntry[];
   attendance: AttendanceEntry[];
   childAttendance: ChildAttendanceEntry[];
@@ -121,6 +150,7 @@ export interface InitialImportPayload {
   people?: Person[];
   attendance?: AttendanceEntry[];
   children?: Child[];
+  childYearRecords?: ChildYearRecord[];
   childAttendance?: ChildAttendanceEntry[];
   journals?: JournalEntry[];
   sourceSpreadsheetId?: string;

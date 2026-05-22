@@ -152,6 +152,7 @@ function App() {
           <ChildrenRosterPage
             rows={safeRows(snapshot.children)}
             childAttendance={safeRows(snapshot.childAttendance)}
+            childYearRecords={safeRows(snapshot.childYearRecords)}
             onChildSaved={handleDataChanged}
             onDeduped={handleDataChanged}
           />

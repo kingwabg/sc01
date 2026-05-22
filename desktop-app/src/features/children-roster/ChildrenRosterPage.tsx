@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Child, ChildAttendanceEntry } from '../../types';
-import { rebuildDedupedChildrenFromLocalData, saveChildRecord } from '../../data/dataProvider';
+import { yearOptions } from '../../app/navigation';
+import { rebuildDedupedChildrenFromLocalData, saveChildYearRecord } from '../../data/dataProvider';
 import { StatCard } from '../../shared/ui/StatCard';
 import { compareTableValues, normalizeFilterText, SortableHeader, uniqueFilterOptions, usePersistentColumnWidths } from '../../shared/ui/data-table';
 import type { SortDirection } from '../../shared/ui/data-table';
+import type { Child, ChildAttendanceEntry, ChildYearRecord } from '../../types';
 
 type ChildSortKey =
   | 'index'
@@ -50,28 +51,97 @@ const CHILD_COLUMN_WIDTHS: Record<ChildSortKey, number> = {
   kidsId: 130
 };
 
+const childStatusLabel: Record<ChildAttendanceEntry['status'], string> = {
+  present: '출석',
+  absent: '결석',
+  official: '공결',
+  substitute: '대체출석',
+  other: '기타'
+};
+
+const editableSections: Array<{
+  title: string;
+  rows: Array<{ label: string; key: keyof Child; type?: string; area?: boolean; options?: string[] }>;
+}> = [
+  {
+    title: '기본 정보',
+    rows: [
+      { label: '이름', key: 'name' },
+      { label: '성별', key: 'gender', options: ['', '남', '여'] },
+      { label: '생년월일', key: 'birthDate', type: 'date' },
+      { label: '연령', key: 'age' },
+      { label: '학교', key: 'school' },
+      { label: '학년', key: 'grade' },
+      { label: '이용유형', key: 'useType' },
+      { label: '기준 중위소득', key: 'incomeLevel' }
+    ]
+  },
+  {
+    title: '보호자',
+    rows: [
+      { label: '보호자', key: 'guardianName' },
+      { label: '관계', key: 'guardianRelation' },
+      { label: '가족 유형', key: 'familyType' },
+      { label: '연락처', key: 'guardianContact' },
+      { label: '휴대폰', key: 'phone' },
+      { label: '주소', key: 'address', area: true }
+    ]
+  },
+  {
+    title: '입소 및 관리',
+    rows: [
+      { label: '상태', key: 'status', options: ['', '재원', '대기', '퇴소'] },
+      { label: '입소일', key: 'joinedAt', type: 'date' },
+      { label: '퇴소일', key: 'leftAt', type: 'date' },
+      { label: '담당자', key: 'manager' },
+      { label: '키즈ID', key: 'kidsId' },
+      { label: '주민번호', key: 'residentNo' }
+    ]
+  }
+];
+
+function value(text?: string | number) {
+  return String(text ?? '').trim() || '-';
+}
+
+function ageOf(row: Child) {
+  if (row.age) return row.age;
+  const year = Number((row.birthDate || '').slice(0, 4));
+  if (!year) return '-';
+  return String(new Date().getFullYear() - year + 1);
+}
+
+function mergeChildForYear(child: Child, record?: ChildYearRecord): Child {
+  if (!record) return child;
+  return {
+    ...child,
+    ...record,
+    id: child.id
+  };
+}
+
 function ChildDetailModal({
   child,
   attendance,
+  availableYears,
+  savedYears,
+  selectedYear,
+  onYearChange,
   onClose,
   onSaved
 }: {
   child: Child;
   attendance: ChildAttendanceEntry[];
+  availableYears: number[];
+  savedYears: number[];
+  selectedYear: number;
+  onYearChange: (year: number) => void;
   onClose: () => void;
   onSaved: (child: Child) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<Child>(child);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const value = (text?: string | number) => String(text ?? '').trim() || '-';
-  const statusLabel: Record<ChildAttendanceEntry['status'], string> = {
-    present: '출석',
-    absent: '결석',
-    official: '공결',
-    substitute: '대체출석',
-    other: '기타'
-  };
   const sortedAttendance = useMemo(
     () => [...attendance].sort((left, right) => right.date.localeCompare(left.date)),
     [attendance]
@@ -80,13 +150,11 @@ function ChildDetailModal({
     acc[item.status] = (acc[item.status] || 0) + 1;
     return acc;
   }, { present: 0, absent: 0, official: 0, substitute: 0, other: 0 });
-  const totalRecords = sortedAttendance.length;
-  const recentDate = sortedAttendance[0]?.date || '-';
 
   useEffect(() => {
     setDraft(child);
     setMessage('');
-  }, [child]);
+  }, [child, selectedYear]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -103,57 +171,16 @@ function ChildDetailModal({
   const saveDraft = async () => {
     if (saving) return;
     setSaving(true);
-    setMessage('저장 중입니다.');
+    setMessage(`${selectedYear}년 상세를 저장하는 중입니다.`);
     try {
       await onSaved(draft);
-      setMessage('저장 완료');
+      setMessage(`${selectedYear}년 저장 완료`);
     } catch (error) {
       setMessage(`저장 실패: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSaving(false);
     }
   };
-
-  const editableSections: Array<{
-    title: string;
-    rows: Array<{ label: string; key: keyof Child; type?: string; area?: boolean; options?: string[] }>;
-  }> = [
-    {
-      title: '기본 정보',
-      rows: [
-        { label: '이름', key: 'name' },
-        { label: '성별', key: 'gender', options: ['', '남', '여'] },
-        { label: '생년월일', key: 'birthDate', type: 'date' },
-        { label: '연령', key: 'age' },
-        { label: '학교', key: 'school' },
-        { label: '학년', key: 'grade' },
-        { label: '이용유형', key: 'useType' },
-        { label: '기준 중위소득', key: 'incomeLevel' }
-      ]
-    },
-    {
-      title: '보호자',
-      rows: [
-        { label: '보호자', key: 'guardianName' },
-        { label: '관계', key: 'guardianRelation' },
-        { label: '가족 유형', key: 'familyType' },
-        { label: '연락처', key: 'guardianContact' },
-        { label: '휴대폰', key: 'phone' },
-        { label: '주소', key: 'address', area: true }
-      ]
-    },
-    {
-      title: '입소 및 관리',
-      rows: [
-        { label: '상태', key: 'status', options: ['', '재원', '대기', '퇴소'] },
-        { label: '입소일', key: 'joinedAt', type: 'date' },
-        { label: '퇴소일', key: 'leftAt', type: 'date' },
-        { label: '담당자', key: 'manager' },
-        { label: '키즈ID', key: 'kidsId' },
-        { label: '주민번호', key: 'residentNo' }
-      ]
-    }
-  ];
 
   return (
     <div className="detail-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -166,19 +193,39 @@ function ChildDetailModal({
           </div>
           <div className="child-detail-modal-actions">
             <button className="action-button primary" type="button" onClick={saveDraft} disabled={saving}>
-              {saving ? '저장 중' : '저장'}
+              {saving ? '저장 중' : `${selectedYear}년 저장`}
             </button>
             <button className="icon-button" type="button" onClick={onClose} aria-label="상세보기 닫기">×</button>
           </div>
         </header>
+
+        <div className="child-detail-year-switch">
+          <div className="child-detail-year-tabs">
+            {availableYears.map((year) => (
+              <button
+                className={year === selectedYear ? 'selected' : ''}
+                key={year}
+                type="button"
+                onClick={() => onYearChange(year)}
+              >
+                {year}년
+              </button>
+            ))}
+          </div>
+          <div className="child-detail-year-copy">
+            <strong>{savedYears.includes(selectedYear) ? `${selectedYear}년 저장본 편집 중` : `${selectedYear}년 기본값 편집 중`}</strong>
+            <span>저장된 연도: {savedYears.length ? savedYears.join(', ') : '아직 없음'}</span>
+          </div>
+        </div>
+
         {message && <div className={`inline-status ${message.includes('실패') ? 'danger' : ''}`}>{message}</div>}
 
         <div className="child-detail-summary">
-          <StatCard label="출결 기록" value={`${totalRecords}건`} />
+          <StatCard label={`${selectedYear}년 출결`} value={`${sortedAttendance.length}건`} />
           <StatCard label="출석" value={`${attendanceSummary.present || 0}건`} />
           <StatCard label="공결" value={`${attendanceSummary.official || 0}건`} />
           <StatCard label="결석" value={`${attendanceSummary.absent || 0}건`} tone={(attendanceSummary.absent || 0) ? 'warning' : ''} />
-          <StatCard label="최근 기록" value={recentDate} />
+          <StatCard label="최근 기록" value={sortedAttendance[0]?.date || '-'} />
         </div>
 
         <div className="child-detail-modal-grid">
@@ -206,7 +253,7 @@ function ChildDetailModal({
         </div>
 
         <article className="child-detail-section full">
-          <h3>최근 출결</h3>
+          <h3>{selectedYear}년 최근 출결</h3>
           <div className="child-detail-attendance-table">
             <table>
               <thead>
@@ -220,13 +267,13 @@ function ChildDetailModal({
                 {sortedAttendance.slice(0, 20).map((item) => (
                   <tr key={item.id}>
                     <td>{item.date}</td>
-                    <td><span className={`pill ${item.status === 'absent' ? 'red' : item.status === 'official' ? 'amber' : 'green'}`}>{statusLabel[item.status]}</span></td>
+                    <td><span className={`pill ${item.status === 'absent' ? 'red' : item.status === 'official' ? 'amber' : 'green'}`}>{childStatusLabel[item.status]}</span></td>
                     <td>{value(item.memo)}</td>
                   </tr>
                 ))}
                 {!sortedAttendance.length && (
                   <tr>
-                    <td colSpan={3} className="empty-row">출결 기록이 없습니다.</td>
+                    <td colSpan={3} className="empty-row">선택한 연도의 출결 기록이 없습니다.</td>
                   </tr>
                 )}
               </tbody>
@@ -236,7 +283,7 @@ function ChildDetailModal({
 
         <article className="child-detail-section full">
           <h3>비고</h3>
-          <textarea className="child-detail-memo-input" value={draft.memo || ''} onChange={(event) => updateDraft('memo', event.target.value)} placeholder="아동 관련 메모를 입력하세요." />
+          <textarea className="child-detail-memo-input" value={draft.memo || ''} onChange={(event) => updateDraft('memo', event.target.value)} placeholder={`${selectedYear}년 아동 메모를 입력하세요.`} />
         </article>
       </section>
     </div>
@@ -246,14 +293,17 @@ function ChildDetailModal({
 export function ChildrenRosterPage({
   rows,
   childAttendance,
+  childYearRecords,
   onDeduped,
   onChildSaved
 }: {
   rows: Child[];
   childAttendance: ChildAttendanceEntry[];
+  childYearRecords: ChildYearRecord[];
   onDeduped: (message: string) => void;
   onChildSaved: (message: string) => void;
 }) {
+  const currentYear = new Date().getFullYear();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('전체');
   const [genderFilter, setGenderFilter] = useState('전체');
@@ -266,6 +316,7 @@ export function ChildrenRosterPage({
   const { widths: childColumnWidths, beginResize: beginChildColumnResize } = usePersistentColumnWidths<ChildSortKey>('children', CHILD_COLUMN_WIDTHS);
   const childTableMinWidth = Object.values(childColumnWidths).reduce((sum, width) => sum + width, 0);
   const [selectedId, setSelectedId] = useState('');
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deduping, setDeduping] = useState(false);
   const [dedupeMessage, setDedupeMessage] = useState('');
@@ -276,23 +327,41 @@ export function ChildrenRosterPage({
     day: 'numeric',
     weekday: 'long'
   }).format(today);
-  const active = rows.filter((row) => row.status !== '퇴소');
-  const inactive = rows.filter((row) => row.status === '퇴소');
+
+  const availableYears = useMemo(() => {
+    return Array.from(new Set([
+      ...yearOptions,
+      currentYear,
+      ...rows.map((row) => Number((row.joinedAt || '').slice(0, 4))).filter(Boolean),
+      ...childAttendance.map((entry) => Number(entry.date.slice(0, 4))).filter(Boolean),
+      ...childYearRecords.map((record) => record.year).filter(Boolean)
+    ])).sort((left, right) => left - right);
+  }, [childAttendance, childYearRecords, currentYear, rows]);
+
+  useEffect(() => {
+    if (!availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[availableYears.length - 1] || currentYear);
+    }
+  }, [availableYears, currentYear, selectedYear]);
+
+  const yearRecordMap = useMemo(() => new Map(childYearRecords.map((record) => [`${record.childId}:${record.year}`, record])), [childYearRecords]);
+  const yearScopedRows = useMemo(
+    () => rows.map((row) => mergeChildForYear(row, yearRecordMap.get(`${row.id}:${selectedYear}`))),
+    [rows, selectedYear, yearRecordMap]
+  );
+
+  const active = yearScopedRows.filter((row) => row.status !== '퇴소');
+  const inactive = yearScopedRows.filter((row) => row.status === '퇴소');
   const birthdayMonth = String(today.getMonth() + 1).padStart(2, '0');
   const birthdayRows = active.filter((row) => (row.birthDate || '').slice(5, 7) === birthdayMonth);
-  const value = (text?: string | number) => String(text ?? '').trim() || '-';
-  const ageOf = (row: Child) => {
-    if (row.age) return row.age;
-    const year = Number((row.birthDate || '').slice(0, 4));
-    if (!year) return '-';
-    return String(today.getFullYear() - year + 1);
-  };
-  const statusOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.status), [rows]);
-  const genderOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.gender), [rows]);
-  const schoolOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.school), [rows]);
-  const gradeOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.grade), [rows]);
-  const useTypeOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.useType || row.vulnerableType), [rows]);
-  const managerOptions = useMemo(() => uniqueFilterOptions(rows, (row) => row.manager), [rows]);
+  const statusOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.status), [yearScopedRows]);
+  const genderOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.gender), [yearScopedRows]);
+  const schoolOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.school), [yearScopedRows]);
+  const gradeOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.grade), [yearScopedRows]);
+  const useTypeOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.useType || row.vulnerableType), [yearScopedRows]);
+  const managerOptions = useMemo(() => uniqueFilterOptions(yearScopedRows, (row) => row.manager), [yearScopedRows]);
+  const storedYearCount = childYearRecords.filter((record) => record.year === selectedYear).length;
+
   const hasChildFilters = Boolean(
     query.trim()
       || statusFilter !== '전체'
@@ -302,6 +371,7 @@ export function ChildrenRosterPage({
       || useTypeFilter !== '전체'
       || managerFilter !== '전체'
   );
+
   const setChildSort = (nextKey: ChildSortKey) => {
     if (nextKey === sortKey) {
       setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
@@ -310,6 +380,7 @@ export function ChildrenRosterPage({
     setSortKey(nextKey);
     setSortDirection('asc');
   };
+
   const resetChildFilters = () => {
     setQuery('');
     setStatusFilter('전체');
@@ -319,6 +390,7 @@ export function ChildrenRosterPage({
     setUseTypeFilter('전체');
     setManagerFilter('전체');
   };
+
   const filteredRows = useMemo(() => {
     const keyword = normalizeFilterText(query);
     const getSortValue = (row: Child, index: number) => {
@@ -327,7 +399,7 @@ export function ChildrenRosterPage({
       if (sortKey === 'useType') return row.useType || row.vulnerableType || '';
       return row[sortKey] ?? '';
     };
-    return rows
+    return yearScopedRows
       .filter((row) => {
         const matchesQuery = !keyword || [
           row.name,
@@ -368,16 +440,39 @@ export function ChildrenRosterPage({
         return sortDirection === 'asc' ? result : -result;
       })
       .map(({ row }) => row);
-  }, [rows, query, statusFilter, genderFilter, schoolFilter, gradeFilter, useTypeFilter, managerFilter, sortKey, sortDirection]);
-  const selectedChild = filteredRows.find((row) => row.id === selectedId) || filteredRows[0] || rows[0];
+  }, [yearScopedRows, query, statusFilter, genderFilter, schoolFilter, gradeFilter, useTypeFilter, managerFilter, sortKey, sortDirection]);
+
+  useEffect(() => {
+    if (!filteredRows.length) {
+      setSelectedId('');
+      return;
+    }
+    if (!filteredRows.some((row) => row.id === selectedId)) {
+      setSelectedId(filteredRows[0].id);
+    }
+  }, [filteredRows, selectedId]);
+
+  const selectedBaseChild = rows.find((row) => row.id === selectedId) || rows[0] || null;
+  const selectedYearRecord = selectedBaseChild ? yearRecordMap.get(`${selectedBaseChild.id}:${selectedYear}`) : undefined;
+  const selectedChild = selectedBaseChild ? mergeChildForYear(selectedBaseChild, selectedYearRecord) : null;
   const selectedChildAttendance = useMemo(
-    () => selectedChild ? childAttendance.filter((item) => item.childId === selectedChild.id) : [],
-    [childAttendance, selectedChild]
+    () => selectedBaseChild
+      ? childAttendance.filter((item) => item.childId === selectedBaseChild.id && item.date.startsWith(`${selectedYear}-`))
+      : [],
+    [childAttendance, selectedBaseChild, selectedYear]
   );
+
+  const childSavedYears = selectedBaseChild
+    ? childYearRecords
+        .filter((record) => record.childId === selectedBaseChild.id)
+        .map((record) => record.year)
+        .sort((left, right) => left - right)
+    : [];
+
   const detailRows = selectedChild
     ? [
         ['이름', selectedChild.name],
-        ['성별', selectedChild.gender],
+        ['기준 연도', `${selectedYear}년`],
         ['휴대폰', selectedChild.phone],
         ['생년월일', selectedChild.birthDate],
         ['연령', ageOf(selectedChild)],
@@ -391,10 +486,10 @@ export function ChildrenRosterPage({
         ['가족 유형', selectedChild.familyType],
         ['연락처', selectedChild.guardianContact],
         ['담당자', selectedChild.manager],
-        ['키즈ID', selectedChild.kidsId],
-        ['비고', selectedChild.memo]
+        ['저장된 연도', childSavedYears.length ? childSavedYears.join(', ') : '아직 없음']
       ]
     : [];
+
   const rebuildRoster = async () => {
     if (deduping) return;
     setDeduping(true);
@@ -415,11 +510,11 @@ export function ChildrenRosterPage({
     <section className="child-workspace">
       <section className="child-ledger-header">
         <div className="child-ledger-metric">
-          <span>정원</span>
-          <strong>35명</strong>
+          <span>{selectedYear}년 저장본</span>
+          <strong>{storedYearCount}건</strong>
         </div>
         <div className="child-ledger-metric highlight">
-          <span>1. 현원 인원</span>
+          <span>현원 인원</span>
           <strong>{active.length}명</strong>
         </div>
         <div className="child-ledger-metric today">
@@ -434,9 +529,9 @@ export function ChildrenRosterPage({
 
       <section className="child-ledger-toolbar panel data-table-toolbar child-data-toolbar">
         <div>
-          <span className="data-table-eyebrow">OpenStatus 스타일 필터</span>
+          <span className="data-table-eyebrow">연도별 아동 상세 + 원본 테이블 유지</span>
           <h2>아동 리스트</h2>
-          <p>{filteredRows.length} / {rows.length}명 표시 중 · 행을 클릭하면 오른쪽 상세 정보가 열립니다.</p>
+          <p>{filteredRows.length} / {rows.length}명 표시 중 · 행을 누르면 상세 작업 화면이 열립니다.</p>
         </div>
         <div className="child-ledger-actions data-table-controls child-ledger-filter-actions">
           <input
@@ -444,6 +539,9 @@ export function ChildrenRosterPage({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="이름, 학교, 보호자, 연락처 검색"
           />
+          <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+            {availableYears.map((year) => <option key={year} value={year}>{year}년 기준</option>)}
+          </select>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="전체">상태 전체</option>
             {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -476,7 +574,9 @@ export function ChildrenRosterPage({
           </button>
         </div>
       </section>
+
       <div className="data-table-active-filters">
+        <span>기준 연도: {selectedYear}년</span>
         <span>정렬: {sortDirection === 'asc' ? '오름차순' : '내림차순'}</span>
         {query.trim() && <span>검색어: {query.trim()}</span>}
         {statusFilter !== '전체' && <span>상태: {statusFilter}</span>}
@@ -486,7 +586,7 @@ export function ChildrenRosterPage({
         {useTypeFilter !== '전체' && <span>이용유형: {useTypeFilter}</span>}
         {managerFilter !== '전체' && <span>담당자: {managerFilter}</span>}
       </div>
-      {dedupeMessage && <div className="inline-status">{dedupeMessage}</div>}
+      {dedupeMessage && <div className={`inline-status ${dedupeMessage.includes('실패') ? 'danger' : ''}`}>{dedupeMessage}</div>}
 
       <div className="child-ledger-layout">
         <div className="table-card child-ledger-table">
@@ -520,8 +620,7 @@ export function ChildrenRosterPage({
                 <tr
                   key={row.id}
                   className={selectedChild?.id === row.id ? 'selected' : ''}
-                  onClick={() => setSelectedId(row.id)}
-                  onDoubleClick={() => {
+                  onClick={() => {
                     setSelectedId(row.id);
                     setDetailOpen(true);
                   }}
@@ -566,11 +665,11 @@ export function ChildrenRosterPage({
 
         <aside className="panel child-detail-panel">
           <div className="child-detail-head">
-            <span className="pill green">{selectedChild?.status || '-'}</span>
+            <span className={`pill ${selectedChild?.status === '퇴소' ? 'red' : selectedChild?.status === '대기' ? 'amber' : 'green'}`}>{selectedChild?.status || '-'}</span>
             <h2>{selectedChild?.name || '아동 선택'}</h2>
-            <p>{selectedChild ? `${value(selectedChild.school)} · ${value(selectedChild.grade)}` : '왼쪽 표에서 아동을 클릭하세요.'}</p>
+            <p>{selectedChild ? `${selectedYear}년 기준 · ${value(selectedChild.school)} · ${value(selectedChild.grade)}` : '왼쪽 표에서 아동을 클릭하세요.'}</p>
             <button className="action-button primary" type="button" onClick={() => setDetailOpen(true)} disabled={!selectedChild}>
-              상세보기
+              상세 페이지 열기
             </button>
           </div>
           <div className="child-detail-grid">
@@ -587,14 +686,24 @@ export function ChildrenRosterPage({
           </div>
         </aside>
       </div>
-      {detailOpen && selectedChild && (
+
+      {detailOpen && selectedChild && selectedBaseChild && (
         <ChildDetailModal
           child={selectedChild}
           attendance={selectedChildAttendance}
+          availableYears={availableYears}
+          savedYears={childSavedYears}
+          selectedYear={selectedYear}
+          onYearChange={setSelectedYear}
           onSaved={async (nextChild) => {
-            const saved = await saveChildRecord(nextChild);
-            setSelectedId(saved.id);
-            onChildSaved(`아동 상세 저장 완료: ${saved.name}`);
+            const saved = await saveChildYearRecord({
+              ...nextChild,
+              id: selectedYearRecord?.id || `child-year-${selectedBaseChild.id}-${selectedYear}`,
+              childId: selectedBaseChild.id,
+              year: selectedYear
+            });
+            setSelectedId(saved.childId);
+            onChildSaved(`아동 상세 저장 완료: ${saved.name} (${selectedYear}년)`);
           }}
           onClose={() => setDetailOpen(false)}
         />

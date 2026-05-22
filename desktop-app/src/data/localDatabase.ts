@@ -3,6 +3,7 @@ import type {
   AttendanceEntry,
   Child,
   ChildAttendanceEntry,
+  ChildYearRecord,
   DashboardSnapshot,
   ImportSummary,
   InitialImportPayload,
@@ -83,6 +84,9 @@ function getBrowserFallbackDatabase(): DatabaseLike {
       if (query.startsWith('seed:childAttendance')) {
         write('child_attendance', JSON.parse(query.slice('seed:childAttendance'.length)));
       }
+      if (query.startsWith('seed:childYearRecords')) {
+        write('child_year_records', JSON.parse(query.slice('seed:childYearRecords'.length)));
+      }
       if (query.startsWith('replace:people')) {
         write('people', JSON.parse(query.slice('replace:people'.length)));
       }
@@ -91,6 +95,18 @@ function getBrowserFallbackDatabase(): DatabaseLike {
       }
       if (query.startsWith('replace:children')) {
         write('children', JSON.parse(query.slice('replace:children'.length)));
+      }
+      if (query.startsWith('replace:childYearRecords')) {
+        write('child_year_records', JSON.parse(query.slice('replace:childYearRecords'.length)));
+      }
+      if (query.startsWith('save:childYearRecord')) {
+        const record = JSON.parse(query.slice('save:childYearRecord'.length)) as ChildYearRecord;
+        const records = read<ChildYearRecord[]>('child_year_records', []);
+        const next = [
+          ...records.filter((item) => item.id !== record.id && !(item.childId === record.childId && item.year === record.year)),
+          record
+        ].sort((a, b) => b.year - a.year || a.name.localeCompare(b.name, 'ko'));
+        write('child_year_records', next);
       }
       if (query.startsWith('save:child')) {
         const child = JSON.parse(query.slice('save:child'.length)) as Child;
@@ -169,6 +185,10 @@ function getBrowserFallbackDatabase(): DatabaseLike {
       if (query.includes('FROM children')) {
         const children = read<Child[]>('children', []);
         return [...children].sort((a, b) => a.name.localeCompare(b.name)) as T;
+      }
+      if (query.includes('FROM child_year_records')) {
+        const records = read<ChildYearRecord[]>('child_year_records', []);
+        return [...records].sort((a, b) => b.year - a.year || a.name.localeCompare(b.name, 'ko')) as T;
       }
       if (query.includes('FROM journals')) {
         const journals = read<JournalEntry[]>('journals', []);
@@ -325,6 +345,16 @@ function mapChild(row: SqlRow): Child {
   };
 }
 
+function mapChildYearRecord(row: SqlRow): ChildYearRecord {
+  const base = mapChild(row);
+  return {
+    ...base,
+    id: String(row.id || ''),
+    childId: String(row.child_id || row.childId || ''),
+    year: Number(row.year || new Date().getFullYear())
+  };
+}
+
 function mapChildAttendance(row: SqlRow): ChildAttendanceEntry {
   return {
     id: String(row.id || ''),
@@ -419,6 +449,21 @@ function normalizeChild(input: Partial<Child>, index: number): Child {
   };
 }
 
+function normalizeChildYearRecord(input: Partial<ChildYearRecord>, index: number): ChildYearRecord {
+  const childId = String(input.childId || '').trim();
+  const year = Number(input.year || new Date().getFullYear());
+  const base = normalizeChild({
+    ...input,
+    id: childId || `child-year-base-${index}`
+  }, index);
+  return {
+    ...base,
+    id: String(input.id || `child-year-${childId || base.id}-${year}`),
+    childId: childId || base.id,
+    year
+  };
+}
+
 const childColumnNames = [
   'id',
   'name',
@@ -479,6 +524,73 @@ function childBindValues(child: Child): BindValue[] {
     child.manager || '',
     child.kidsId || '',
     child.memo || ''
+  ];
+}
+
+const childYearRecordColumnNames = [
+  'id',
+  'child_id',
+  'year',
+  'name',
+  'gender',
+  'phone',
+  'resident_no',
+  'birth_date',
+  'age',
+  'school',
+  'grade',
+  'address',
+  'use_type',
+  'income_level',
+  'guardian_name',
+  'guardian_relation',
+  'family_type',
+  'guardian_contact',
+  'vulnerable_type',
+  'status',
+  'joined_at',
+  'left_at',
+  'manager',
+  'kids_id',
+  'memo'
+];
+
+const childYearRecordInsertColumns = childYearRecordColumnNames.join(', ');
+
+const childYearRecordInsertPlaceholders = Array.from({ length: 25 }, (_, index) => `$${index + 1}`).join(', ');
+
+const childYearRecordUpdateAssignments = childYearRecordColumnNames
+  .filter((columnName) => columnName !== 'id' && columnName !== 'child_id' && columnName !== 'year')
+  .map((columnName) => `${columnName} = excluded.${columnName}`)
+  .join(', ');
+
+function childYearRecordBindValues(record: ChildYearRecord): BindValue[] {
+  return [
+    record.id,
+    record.childId,
+    record.year,
+    record.name,
+    record.gender,
+    record.phone || '',
+    record.residentNo || '',
+    record.birthDate || '',
+    record.age || '',
+    record.school,
+    record.grade,
+    record.address || '',
+    record.useType || '',
+    record.incomeLevel || '',
+    record.guardianName || '',
+    record.guardianRelation || '',
+    record.familyType || '',
+    record.guardianContact || '',
+    record.vulnerableType || '',
+    record.status,
+    record.joinedAt,
+    record.leftAt || '',
+    record.manager || '',
+    record.kidsId || '',
+    record.memo || ''
   ];
 }
 
@@ -635,6 +747,35 @@ function dedupeChildrenAndAttendance(
     });
 
   return { children: dedupedChildren, childAttendance: dedupedAttendance, idMap };
+}
+
+function remapChildYearRecords(
+  records: ChildYearRecord[],
+  idMap: Record<string, string>,
+  canonicalChildren: Child[]
+) {
+  const canonicalById = new Map(canonicalChildren.map((child) => [child.id, child]));
+  const byKey = new Map<string, ChildYearRecord>();
+
+  records.forEach((record, index) => {
+    const nextChildId = idMap[record.childId] || record.childId;
+    const canonical = canonicalById.get(nextChildId);
+    if (!nextChildId || !record.year) return;
+    const normalized = normalizeChildYearRecord({
+      ...record,
+      childId: nextChildId,
+      id: `child-year-${nextChildId}-${record.year}`,
+      name: record.name || canonical?.name || '',
+      gender: record.gender || canonical?.gender || '',
+      birthDate: record.birthDate || canonical?.birthDate || '',
+      residentNo: record.residentNo || canonical?.residentNo || '',
+      joinedAt: record.joinedAt || canonical?.joinedAt || '',
+      kidsId: record.kidsId || canonical?.kidsId || ''
+    }, index);
+    byKey.set(`${normalized.childId}|${normalized.year}`, normalized);
+  });
+
+  return Array.from(byKey.values()).sort((a, b) => b.year - a.year || a.name.localeCompare(b.name, 'ko'));
 }
 
 function normalizeJournal(input: Partial<JournalEntry>, index: number): JournalEntry {
@@ -844,6 +985,7 @@ export async function seedDemoDataIfEmpty() {
     await db.execute('seed:people' + JSON.stringify([...staff, ...nonStaff]));
     await db.execute('seed:journals' + JSON.stringify(journals));
     await db.execute('seed:children' + JSON.stringify(children));
+    await db.execute('seed:childYearRecords' + JSON.stringify([]));
     await db.execute('seed:childAttendance' + JSON.stringify(childAttendance));
   }
   await setSetting('initialized', 'true');
@@ -884,6 +1026,7 @@ async function seedDemoChildrenIfEmpty() {
     }
   } else {
     await db.execute('seed:children' + JSON.stringify(children));
+    await db.execute('seed:childYearRecords' + JSON.stringify([]));
     await db.execute('seed:childAttendance' + JSON.stringify(childAttendance));
   }
 }
@@ -897,12 +1040,17 @@ export async function replaceLocalDatabaseFromImport(
   const db = await getDatabase();
   const people = (payload.people || []).map(normalizePerson).filter((person) => person.name);
   const attendance = (payload.attendance || []).map(normalizeAttendance).filter((item) => item.personId && item.date);
-  const hasChildPayload = Array.isArray(payload.children) || Array.isArray(payload.childAttendance);
+  const hasChildPayload = Array.isArray(payload.children) || Array.isArray(payload.childAttendance) || Array.isArray(payload.childYearRecords);
   const rawChildren = (payload.children || []).map(normalizeChild).filter((child) => child.name);
   const rawChildAttendance = (payload.childAttendance || []).map(normalizeChildAttendance).filter((item) => item.childId && item.date);
   const dedupedChildPayload = dedupeChildrenAndAttendance(rawChildren, rawChildAttendance);
   const children = dedupedChildPayload.children;
   const childAttendance = dedupedChildPayload.childAttendance;
+  const childYearRecords = remapChildYearRecords(
+    (payload.childYearRecords || []).map(normalizeChildYearRecord).filter((record) => record.childId && record.year),
+    dedupedChildPayload.idMap,
+    children
+  );
   const journals = (payload.journals || []).map(normalizeJournal).filter((journal) => journal.date);
 
   if (isTauriRuntime()) {
@@ -911,6 +1059,7 @@ export async function replaceLocalDatabaseFromImport(
       await db.execute('DELETE FROM journals');
       await db.execute('DELETE FROM people');
       if (hasChildPayload) {
+        await db.execute('DELETE FROM child_year_records');
         await db.execute('DELETE FROM child_attendance');
         await db.execute('DELETE FROM children');
       }
@@ -943,6 +1092,17 @@ export async function replaceLocalDatabaseFromImport(
             [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'imported']
           );
         }
+        for (const record of childYearRecords) {
+          await db.execute(
+            `INSERT INTO child_year_records (${childYearRecordInsertColumns}, sync_status)
+             VALUES (${childYearRecordInsertPlaceholders}, 'synced')
+             ON CONFLICT(child_id, year) DO UPDATE SET
+               ${childYearRecordUpdateAssignments},
+               updated_at = CURRENT_TIMESTAMP,
+               sync_status = 'synced'`,
+            childYearRecordBindValues(record)
+          );
+        }
       }
       for (const journal of journals) {
         await db.execute(
@@ -957,6 +1117,7 @@ export async function replaceLocalDatabaseFromImport(
     await db.execute('replace:attendance' + JSON.stringify(attendance));
     if (hasChildPayload) {
       await db.execute('replace:children' + JSON.stringify(children));
+      await db.execute('replace:childYearRecords' + JSON.stringify(childYearRecords));
       await db.execute('replace:childAttendance' + JSON.stringify(childAttendance));
     }
     await db.execute('replace:journals' + JSON.stringify(journals));
@@ -1089,6 +1250,35 @@ export async function saveChildRecord(child: Child): Promise<Child> {
   return next;
 }
 
+export async function saveChildYearRecord(record: ChildYearRecord): Promise<ChildYearRecord> {
+  await initializeDatabase();
+  const db = await getDatabase();
+  const next = normalizeChildYearRecord(record, 0);
+  if (!next.childId.trim()) {
+    throw new Error('연도별 저장 대상 아동이 없습니다.');
+  }
+  if (!next.name.trim()) {
+    throw new Error('아동 이름은 비워둘 수 없습니다.');
+  }
+  if (!Number.isFinite(next.year) || next.year < 2000) {
+    throw new Error('저장할 연도가 올바르지 않습니다.');
+  }
+  if (isTauriRuntime()) {
+    await db.execute(
+      `INSERT INTO child_year_records (${childYearRecordInsertColumns}, sync_status)
+       VALUES (${childYearRecordInsertPlaceholders}, 'pending')
+       ON CONFLICT(child_id, year) DO UPDATE SET
+         ${childYearRecordUpdateAssignments},
+         updated_at = CURRENT_TIMESTAMP,
+         sync_status = 'pending'`,
+      childYearRecordBindValues(next)
+    );
+  } else {
+    await db.execute('save:childYearRecord' + JSON.stringify(next));
+  }
+  return next;
+}
+
 export async function saveChildAttendanceEntries(entries: ChildAttendanceEntry[]): Promise<{ saved: number }> {
   await initializeDatabase();
   const db = await getDatabase();
@@ -1134,10 +1324,13 @@ export async function rebuildDedupedChildrenFromLocalData(): Promise<{ before: n
   const db = await getDatabase();
   const existingChildren = (await db.select<SqlRow[]>('SELECT * FROM children ORDER BY joined_at, name')).map(mapChild);
   const existingChildAttendance = (await db.select<SqlRow[]>('SELECT * FROM child_attendance ORDER BY date')).map(mapChildAttendance);
+  const existingChildYearRecords = (await db.select<SqlRow[]>('SELECT * FROM child_year_records ORDER BY year DESC, name')).map(mapChildYearRecord);
   const deduped = dedupeChildrenAndAttendance(existingChildren, existingChildAttendance);
+  const remappedChildYearRecords = remapChildYearRecords(existingChildYearRecords, deduped.idMap, deduped.children);
 
   if (isTauriRuntime()) {
     await runSqliteTransaction(db, async () => {
+      await db.execute('DELETE FROM child_year_records');
       await db.execute('DELETE FROM child_attendance');
       await db.execute('DELETE FROM children');
       for (const child of deduped.children) {
@@ -1154,9 +1347,21 @@ export async function rebuildDedupedChildrenFromLocalData(): Promise<{ before: n
           [item.id, item.childId, item.date, item.yearMonth, item.status, item.memo || '', item.syncedAt || 'deduped']
         );
       }
+      for (const record of remappedChildYearRecords) {
+        await db.execute(
+          `INSERT INTO child_year_records (${childYearRecordInsertColumns}, sync_status)
+           VALUES (${childYearRecordInsertPlaceholders}, 'synced')
+           ON CONFLICT(child_id, year) DO UPDATE SET
+             ${childYearRecordUpdateAssignments},
+             updated_at = CURRENT_TIMESTAMP,
+             sync_status = 'synced'`,
+          childYearRecordBindValues(record)
+        );
+      }
     });
   } else {
     await db.execute('replace:children' + JSON.stringify(deduped.children));
+    await db.execute('replace:childYearRecords' + JSON.stringify(remappedChildYearRecords));
     await db.execute('replace:childAttendance' + JSON.stringify(deduped.childAttendance));
   }
 
@@ -1174,6 +1379,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
   const db = await getDatabase();
   const people = (await db.select<SqlRow[]>('SELECT * FROM people ORDER BY kind, started_at, name')).map(mapPerson);
   const children = (await db.select<SqlRow[]>('SELECT * FROM children ORDER BY status, joined_at, name')).map(mapChild);
+  const childYearRecords = (await db.select<SqlRow[]>('SELECT * FROM child_year_records ORDER BY year DESC, name')).map(mapChildYearRecord);
   const journals = (await db.select<SqlRow[]>('SELECT * FROM journals ORDER BY date DESC')).map(mapJournal);
   const attendance = (await db.select<SqlRow[]>('SELECT * FROM attendance ORDER BY date DESC')).map(mapAttendance);
   const childAttendance = (await db.select<SqlRow[]>('SELECT * FROM child_attendance ORDER BY date DESC')).map(mapChildAttendance);
@@ -1183,6 +1389,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     staff: people.filter((person) => person.kind === 'staff'),
     nonStaff: people.filter((person) => person.kind === 'nonStaff'),
     children,
+    childYearRecords,
     journals,
     attendance,
     childAttendance,
