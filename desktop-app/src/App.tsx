@@ -13,6 +13,7 @@ import { ImportPage } from './features/import/ImportPage';
 import { JournalCreatePage } from './features/journal-create/JournalCreatePage';
 import { JournalEditPage } from './features/journal-edit/JournalEditPage';
 import { JournalTemplatePage } from './features/journal-template/JournalTemplatePage';
+import { ProgramJournalsPage } from './features/program-journals/ProgramJournalsPage';
 import { PeopleRosterPage } from './features/people-roster/PeopleRosterPage';
 import { ProgramPlansPage } from './features/program-plans/ProgramPlansPage';
 import { StatisticsPage } from './features/statistics/StatisticsPage';
@@ -175,14 +176,7 @@ function App() {
 
         {view === 'programPlans' && <ProgramPlansPage />}
 
-        {view === 'programJournals' && (
-          <ParityWorkbench
-            title="프로그램 일지"
-            summary="기존 스프레드시트 프로그램 일지를 데스크톱에서 작성하고 운영일지 미리보기로 이어지게 만드는 화면입니다."
-            implemented={['운영일지 템플릿 미리보기', '참석자/담당자 표시 규칙 설계']}
-            next={['프로그램 일지 DB 추가', '아동 출결과 참석자 자동 연결', '프로그램일지 출력 템플릿 연결']}
-          />
-        )}
+        {snapshot && view === 'programJournals' && <ProgramJournalsPage snapshot={snapshot} onSaved={handleDataChanged} />}
 
         {view === 'programEvaluations' && (
           <ParityWorkbench
