@@ -266,11 +266,12 @@ features/journal-template/
 - 완료: `src/features/import/ImportPage.tsx`로 스프레드시트/API/JSON 가져오기 화면을 기능 폴더로 분리
 - 완료: `src/shared/ui/ParityWorkbench.tsx`로 임시 동일화 화면을 공통 UI로 분리
 - 완료: `src/features/export/ExportPage.tsx`로 내보내기 안내 화면을 기능 폴더로 분리
+- 완료: `src/app/AppStatusStrip.tsx`로 기준 DB/운영 모드/마지막 이관/최근 상태 메시지를 앱 상태 표시줄로 분리
 - 검증: `npm run build` 통과
-- 검증: 브라우저에서 대시보드 통계 카드, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 아동 출결대장 화면, 아동 목록 화면, 데이터 가져오기 화면, 내보내기 화면, 임시 동일화 화면, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage/JournalTemplatePage/ChildAttendancePage/ChildrenRosterPage/ImportPage/ExportPage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
+- 검증: 브라우저에서 대시보드 통계 카드, 앱 상태 메시지 표시, 빈 상태 클래스, 운영일지 수정 화면, 템플릿 만들기/RHWP iframe, 아동 출결대장 화면, 아동 목록 화면, 데이터 가져오기 화면, 내보내기 화면, 임시 동일화 화면, 사이드바 메뉴 이동, 상단바 제거, AppShell 적용, Panel/PanelTitle 적용, DashboardPage/JournalEditPage/JournalTemplatePage/ChildAttendancePage/ChildrenRosterPage/ImportPage/ExportPage 분리, 문서 미리보기/RHWP 래퍼 공통화, 82px 접힘 레일 확인
 
 다음 추천 작업:
 
 1. `Toolbar`와 버튼 클러스터 같은 패널 내부 액션 UI를 실제 사용처 기준으로 추출한다.
 2. 프로그램 일지/평가를 실제 작성 화면으로 확장할 데이터 모델을 설계한다.
-3. `StatusStrip`와 앱 상태 메시지 표시 방식을 정리해 데이터 변경 피드백을 더 잘 보이게 만든다.
+3. `StatusStrip` 다음 단계로 저장/동기화 성공 토스트 또는 최근 작업 로그를 추가한다.

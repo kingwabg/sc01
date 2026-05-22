@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DashboardSnapshot, ImportSummary, Person } from './types';
 import { AppShell } from './app/AppShell';
+import { AppStatusStrip } from './app/AppStatusStrip';
 import type { ViewKey } from './app/navigation';
 import { getDataProviderLabel, loadDashboardSnapshot } from './data/dataProvider';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -19,22 +20,6 @@ import { EmptyState } from './shared/ui/EmptyState';
 import { ParityWorkbench } from './shared/ui/ParityWorkbench';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 import { PreviewModeTabs, RhwpEditorPane as SharedRhwpEditorPane } from './shared/ui/document-preview';
-
-function StatusStrip({ snapshot, providerLabel }: { snapshot: DashboardSnapshot; providerLabel: string }) {
-  const modeLabel = {
-    demo: '샘플 데이터',
-    spreadsheet: '스프레드시트에서 이관됨',
-    manual: 'JSON 수동 이관',
-    empty: '비어 있음'
-  }[snapshot.settings.sourceMode];
-  return (
-    <div className="status-strip">
-      <span>기준 DB: {providerLabel}</span>
-      <span>운영 모드: {modeLabel}</span>
-      <span>마지막 이관: {snapshot.settings.importedAt ? new Date(snapshot.settings.importedAt).toLocaleString() : '-'}</span>
-    </div>
-  );
-}
 
 function App() {
   const providerLabel = getDataProviderLabel();
@@ -96,7 +81,7 @@ function App() {
       onViewChange={setView}
     >
       {!snapshot && <EmptyState>데이터를 불러오는 중입니다.</EmptyState>}
-      {snapshot && <StatusStrip snapshot={snapshot} providerLabel={providerLabel} />}
+      {snapshot && <AppStatusStrip snapshot={snapshot} providerLabel={providerLabel} message={status} />}
 
       <ViewErrorBoundary viewKey={view}>
         {snapshot && view === 'dashboard' && (

@@ -158,6 +158,31 @@ nav button.active {
   font-weight: 900;
 }
 
+.status-strip .status-message {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.status-strip .status-message.success {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-strip .status-message.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -3445,6 +3470,10 @@ nav button.active::before {
   border-color: var(--ui-border);
   background: rgba(255, 255, 255, .88);
   color: #39485d;
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.status-strip .status-message {
   box-shadow: var(--ui-shadow-sm);
 }
 
