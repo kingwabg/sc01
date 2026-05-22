@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DashboardSnapshot, ImportSummary, Person } from './types';
 import { AppShell } from './app/AppShell';
 import { AppStatusStrip } from './app/AppStatusStrip';
+import type { AppStatusEntry, AppStatusTone } from './app/AppStatusStrip';
 import type { ViewKey } from './app/navigation';
 import { getDataProviderLabel, loadDashboardSnapshot } from './data/dataProvider';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -25,18 +26,41 @@ function App() {
   const providerLabel = getDataProviderLabel();
   const [view, setView] = useState<ViewKey>('dashboard');
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
-  const [status, setStatus] = useState(`${providerLabel} 기준 데이터를 준비하는 중입니다.`);
+  const [status, setStatus] = useState<{ message: string; tone: AppStatusTone }>({
+    message: `${providerLabel} 기준 데이터를 준비하는 중입니다.`,
+    tone: 'neutral'
+  });
+  const [statusEntries, setStatusEntries] = useState<AppStatusEntry[]>([]);
   const [lastImportSummary, setLastImportSummary] = useState<ImportSummary | null>(null);
   const [sidebarHidden, setSidebarHidden] = useState(false);
 
-  const refreshSnapshot = () => {
+  const publishStatus = (message: string, tone: AppStatusTone, record = true) => {
+    setStatus({ message, tone });
+    if (!record) return;
+    setStatusEntries((current) => {
+      const nextEntry: AppStatusEntry = {
+        createdAt: Date.now(),
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        message,
+        tone
+      };
+      const deduped = current.filter((entry) => entry.message !== message || entry.tone !== tone);
+      return [nextEntry, ...deduped].slice(0, 4);
+    });
+  };
+
+  const refreshSnapshot = (nextStatus?: { message: string; tone: AppStatusTone; record?: boolean }) => {
     loadDashboardSnapshot()
       .then((next) => {
         setSnapshot(next);
-        setStatus(`${providerLabel} 기준 운영 구조가 준비되었습니다.`);
+        if (nextStatus) {
+          publishStatus(nextStatus.message, nextStatus.tone, nextStatus.record ?? true);
+          return;
+        }
+        publishStatus(`${providerLabel} 기준 운영 구조가 준비되었습니다.`, 'success');
       })
       .catch((error) => {
-        setStatus(`초기화 실패: ${error instanceof Error ? error.message : String(error)}`);
+        publishStatus(`초기화 실패: ${error instanceof Error ? error.message : String(error)}`, 'danger');
       });
   };
 
@@ -46,11 +70,11 @@ function App() {
       .then((next) => {
         if (!alive) return;
         setSnapshot(next);
-        setStatus(`${providerLabel} 기준 운영 구조가 준비되었습니다.`);
+        publishStatus(`${providerLabel} 기준 운영 구조가 준비되었습니다.`, 'success');
       })
       .catch((error) => {
         if (!alive) return;
-        setStatus(`초기화 실패: ${error instanceof Error ? error.message : String(error)}`);
+        publishStatus(`초기화 실패: ${error instanceof Error ? error.message : String(error)}`, 'danger');
       });
     return () => {
       alive = false;
@@ -64,12 +88,15 @@ function App() {
 
   const handleImported = (summary: ImportSummary) => {
     setLastImportSummary(summary);
-    refreshSnapshot();
+    const message = `이관 완료: 인원 ${summary.peopleCount}명, 아동 ${summary.childCount}명, 출결 ${summary.attendanceCount + summary.childAttendanceCount}건, 운영일지 ${summary.journalCount}건`;
+    publishStatus(message, 'success', false);
+    refreshSnapshot({ message, tone: 'success' });
   };
 
   const handleDataChanged = (message: string) => {
-    setStatus(message);
-    refreshSnapshot();
+    const tone: AppStatusTone = message.includes('실패') || message.includes('오류') ? 'danger' : 'success';
+    publishStatus(message, tone, false);
+    refreshSnapshot({ message, tone });
   };
 
   return (
@@ -81,7 +108,7 @@ function App() {
       onViewChange={setView}
     >
       {!snapshot && <EmptyState>데이터를 불러오는 중입니다.</EmptyState>}
-      {snapshot && <AppStatusStrip snapshot={snapshot} providerLabel={providerLabel} message={status} />}
+      {snapshot && <AppStatusStrip snapshot={snapshot} providerLabel={providerLabel} message={status.message} tone={status.tone} entries={statusEntries} />}
 
       <ViewErrorBoundary viewKey={view}>
         {snapshot && view === 'dashboard' && (

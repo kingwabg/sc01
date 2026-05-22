@@ -183,6 +183,47 @@ nav button.active {
   color: #b91c1c;
 }
 
+.status-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: -6px 0 18px;
+}
+
+.status-feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #dbe5f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.status-feed-item span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.status-feed-item strong {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.status-feed-item.success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.status-feed-item.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -3475,6 +3516,22 @@ nav button.active::before {
 
 .status-strip .status-message {
   box-shadow: var(--ui-shadow-sm);
+}
+
+.status-feed-item {
+  border-color: var(--ui-border);
+  background: rgba(255, 255, 255, .92);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.status-feed-item.success {
+  border-color: #9bd8b0;
+  background: rgba(240, 253, 244, .96);
+}
+
+.status-feed-item.danger {
+  border-color: #f2b4b7;
+  background: rgba(254, 242, 242, .96);
 }
 
 .stat-card,
