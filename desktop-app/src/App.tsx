@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AttendanceEntry, DashboardSnapshot, ImportSummary, Person } from './types';
+import type { DashboardSnapshot, ImportSummary, Person } from './types';
 import { AppShell } from './app/AppShell';
 import type { ViewKey } from './app/navigation';
-import { getDataProviderLabel, loadDashboardSnapshot, saveJournalEntry } from './data/dataProvider';
+import { getDataProviderLabel, loadDashboardSnapshot } from './data/dataProvider';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ChildAttendancePage } from './features/child-attendance/ChildAttendancePage';
 import { ChildrenRosterPage } from './features/children-roster/ChildrenRosterPage';
+import { ExportPage } from './features/export/ExportPage';
 import { ImportPage } from './features/import/ImportPage';
 import { JournalCreatePage } from './features/journal-create/JournalCreatePage';
 import { JournalEditPage } from './features/journal-edit/JournalEditPage';
@@ -13,10 +14,9 @@ import { JournalTemplatePage } from './features/journal-template/JournalTemplate
 import { PeopleRosterPage } from './features/people-roster/PeopleRosterPage';
 import { ProgramPlansPage } from './features/program-plans/ProgramPlansPage';
 import { StatisticsPage } from './features/statistics/StatisticsPage';
-import { useMediaQuery } from './shared/hooks/useMediaQuery';
 import { safeRows } from './shared/lib/arrays';
 import { EmptyState } from './shared/ui/EmptyState';
-import { Panel } from './shared/ui/Panel';
+import { ParityWorkbench } from './shared/ui/ParityWorkbench';
 import { ViewErrorBoundary } from './shared/ui/ViewErrorBoundary';
 import { PreviewModeTabs, RhwpEditorPane as SharedRhwpEditorPane } from './shared/ui/document-preview';
 
@@ -33,40 +33,6 @@ function StatusStrip({ snapshot, providerLabel }: { snapshot: DashboardSnapshot;
       <span>운영 모드: {modeLabel}</span>
       <span>마지막 이관: {snapshot.settings.importedAt ? new Date(snapshot.settings.importedAt).toLocaleString() : '-'}</span>
     </div>
-  );
-}
-
-function ParityWorkbench({
-  title,
-  summary,
-  implemented,
-  next
-}: {
-  title: string;
-  summary: string;
-  implemented: string[];
-  next: string[];
-}) {
-  return (
-    <section className="parity-workbench">
-      <Panel className="parity-hero">
-        <span className="eyebrow">스프레드시트 동일화</span>
-        <h2>{title}</h2>
-        <p>{summary}</p>
-      </Panel>
-      <Panel className="parity-card">
-        <h2>현재 연결됨</h2>
-        <ul className="todo-list">
-          {implemented.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      </Panel>
-      <Panel className="parity-card">
-        <h2>다음 구현</h2>
-        <ul className="todo-list">
-          {next.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      </Panel>
-    </section>
   );
 }
 
@@ -233,18 +199,7 @@ function App() {
           />
         )}
 
-        {view === 'export' && (
-          <Panel className="sync-panel">
-            <h2>내보내기 설계</h2>
-            <p>이제 Google Sheets는 운영 DB가 아니라 백업/공유/제출용 출력 대상입니다.</p>
-            <div className="sync-flow">
-              <span>{providerLabel} 기준 데이터</span>
-              <span>검증</span>
-              <span>스프레드시트 내보내기</span>
-              <span>PDF/HTML 출력</span>
-            </div>
-          </Panel>
-        )}
+        {view === 'export' && <ExportPage providerLabel={providerLabel} />}
       </ViewErrorBoundary>
     </AppShell>
   );
