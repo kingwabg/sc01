@@ -2462,6 +2462,203 @@ td {
   font-weight: 800;
 }
 
+.child-detail-page {
+  display: grid;
+  gap: 16px;
+}
+
+.child-detail-page-hero {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+}
+
+.child-detail-page-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.child-detail-back-button {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  font-size: 28px;
+}
+
+.child-detail-save-button {
+  min-width: 156px;
+  min-height: 54px;
+  border-radius: 20px;
+}
+
+.child-detail-hero-grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.child-detail-avatar-card {
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 140px;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #f8fbff, #edf3fb);
+  box-shadow: 0 20px 40px rgba(148, 163, 184, .28);
+}
+
+.child-detail-avatar {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 24px;
+  background: #fff;
+  color: #334155;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.child-detail-hero-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.child-detail-hero-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.child-detail-hero-title-row h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(38px, 4vw, 60px);
+  line-height: 1;
+}
+
+.child-detail-hero-copy p {
+  margin: -4px 0 0;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.child-detail-year-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.child-detail-year-row button {
+  min-width: 62px;
+  min-height: 34px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.child-detail-year-row button.selected {
+  border-color: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(79, 70, 229, .24);
+}
+
+.child-detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.child-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid #dbe5f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 900;
+  padding: 0 16px;
+}
+
+.child-detail-chip.soft {
+  background: #eef4ff;
+  color: #4f46e5;
+}
+
+.child-detail-step-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.child-detail-step-strip button {
+  min-height: 54px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 900;
+  padding: 0 18px;
+}
+
+.child-detail-step-strip button.active {
+  border-color: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(79, 70, 229, .22);
+}
+
+.child-detail-page-card {
+  display: grid;
+  gap: 16px;
+  padding: 26px;
+  background: linear-gradient(180deg, #f7fbff, #f0f6fb);
+}
+
+.child-detail-page-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.child-detail-page-card-head h2 {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.child-detail-page-card-status {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.child-detail-page-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.child-detail-page-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  gap: 16px;
+}
+
 .child-records-workspace {
   display: grid;
   gap: 16px;
@@ -5660,13 +5857,17 @@ body {
   .child-records-toolbar,
   .child-record-header-top,
   .child-record-year-note,
-  .child-selector-head {
+  .child-selector-head,
+  .child-detail-page-topbar,
+  .child-detail-page-card-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .child-records-toolbar-actions,
-  .child-records-layout {
+  .child-records-layout,
+  .child-detail-page-bottom-grid,
+  .child-detail-page-sections {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -5692,6 +5893,10 @@ body {
   .child-detail-year-copy {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .child-detail-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .child-attendance-calendar {
@@ -5741,6 +5946,7 @@ body {
   .child-ledger-header,
   .child-records-toolbar-actions,
   .child-detail-summary,
+  .child-detail-step-strip,
   .quality-list,
   .child-detail-modal-grid,
   .child-detail-form-grid,
@@ -5764,6 +5970,15 @@ body {
   .program-journal-sections,
   .program-journal-meta-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .child-detail-page-hero,
+  .child-detail-page-card {
+    padding: 18px;
+  }
+
+  .child-detail-hero-title-row h1 {
+    font-size: 34px;
   }
 
   .child-selector-item {
