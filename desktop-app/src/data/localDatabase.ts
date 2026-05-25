@@ -108,7 +108,7 @@ function getBrowserFallbackDatabase(): DatabaseLike {
         ].sort((a, b) => b.year - a.year || a.name.localeCompare(b.name, 'ko'));
         write('child_year_records', next);
       }
-      if (query.startsWith('save:child')) {
+      if (query.startsWith('save:child{')) {
         const child = JSON.parse(query.slice('save:child'.length)) as Child;
         const children = read<Child[]>('children', []);
         const next = [

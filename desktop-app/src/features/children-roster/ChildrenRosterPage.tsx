@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
 import { yearOptions } from '../../app/navigation';
 import { rebuildDedupedChildrenFromLocalData, saveChildYearRecord } from '../../data/dataProvider';
 import { StatCard } from '../../shared/ui/StatCard';
@@ -346,8 +347,11 @@ export function ChildrenRosterPage({
   const [detailViewOpen, setDetailViewOpen] = useState(false);
   const [deduping, setDeduping] = useState(false);
   const [dedupeMessage, setDedupeMessage] = useState('');
+  const [directEditMode, setDirectEditMode] = useState(false);
+  const [directEditDrafts, setDirectEditDrafts] = useState<Record<string, Partial<Child>>>({});
+  const [savingDirectEditId, setSavingDirectEditId] = useState('');
   const { widths: childColumnWidths, beginResize: beginChildColumnResize } = usePersistentColumnWidths<ChildSortKey>('children', CHILD_COLUMN_WIDTHS);
-  const childTableMinWidth = Object.values(childColumnWidths).reduce((sum, width) => sum + width, 0);
+  const childTableMinWidth = Object.values(childColumnWidths).reduce((sum, width) => sum + width, 0) + (directEditMode ? 112 : 0);
   const today = new Date();
   const todayLabel = new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',
@@ -499,6 +503,64 @@ export function ChildrenRosterPage({
         .sort((left, right) => left - right)
     : [];
 
+  const getDirectEditDraft = (row: Child) => ({
+    ...row,
+    ...(directEditDrafts[row.id] || {})
+  });
+
+  const updateDirectEditDraft = (childId: string, key: keyof Child, nextValue: string) => {
+    setDirectEditDrafts((current) => ({
+      ...current,
+      [childId]: {
+        ...(current[childId] || {}),
+        [key]: nextValue
+      }
+    }));
+  };
+
+  const saveDirectEditRow = async (row: Child) => {
+    if (savingDirectEditId) return;
+    const draft = getDirectEditDraft(row);
+    const yearRecord = yearRecordMap.get(`${row.id}:${selectedYear}`);
+    setSavingDirectEditId(row.id);
+    try {
+      const saved = await saveChildYearRecord({
+        ...draft,
+        id: yearRecord?.id || `child-year-${row.id}-${selectedYear}`,
+        childId: row.id,
+        year: selectedYear
+      });
+      setDirectEditDrafts((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      onChildSaved(`화면 직접 수정 저장 완료: ${saved.name} (${selectedYear}년)`);
+    } catch (error) {
+      onChildSaved(`화면 직접 수정 저장 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setSavingDirectEditId('');
+    }
+  };
+
+  const renderDirectEditInput = (row: Child, key: keyof Child, options?: string[]) => {
+    const draft = getDirectEditDraft(row);
+    const fieldValue = String(draft[key] ?? '');
+    const common = {
+      value: fieldValue,
+      onClick: (event: MouseEvent) => event.stopPropagation(),
+      onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => updateDirectEditDraft(row.id, key, event.target.value)
+    };
+    if (options) {
+      return (
+        <select className="direct-edit-control" {...common}>
+          {options.map((option) => <option key={option || 'blank'} value={option}>{option || '선택 안 함'}</option>)}
+        </select>
+      );
+    }
+    return <input className="direct-edit-control" {...common} />;
+  };
+
   const rebuildRoster = async () => {
     if (deduping) return;
     setDeduping(true);
@@ -602,6 +664,13 @@ export function ChildrenRosterPage({
           <button className="action-button" type="button" onClick={resetChildFilters} disabled={!hasChildFilters}>
             초기화
           </button>
+          <button
+            className={`action-button ${directEditMode ? 'primary' : ''}`}
+            type="button"
+            onClick={() => setDirectEditMode((value) => !value)}
+          >
+            화면 직접 수정
+          </button>
           <button className="action-button" type="button" onClick={rebuildRoster} disabled={deduping}>
             {deduping ? '정리 중...' : '중복 정리'}
           </button>
@@ -645,6 +714,7 @@ export function ChildrenRosterPage({
               <SortableHeader label="비고" sortKey="memo" activeKey={sortKey} direction={sortDirection} width={childColumnWidths.memo} onSort={setChildSort} onResizeStart={beginChildColumnResize} />
               <SortableHeader label="담당자" sortKey="manager" activeKey={sortKey} direction={sortDirection} width={childColumnWidths.manager} onSort={setChildSort} onResizeStart={beginChildColumnResize} />
               <SortableHeader label="키즈ID" sortKey="kidsId" activeKey={sortKey} direction={sortDirection} width={childColumnWidths.kidsId} onSort={setChildSort} onResizeStart={beginChildColumnResize} />
+              {directEditMode && <th className="direct-edit-action-col">저장</th>}
             </tr>
           </thead>
           <tbody>
@@ -653,11 +723,12 @@ export function ChildrenRosterPage({
                 key={row.id}
                 className={selectedChild?.id === row.id ? 'selected' : ''}
                 onClick={() => {
+                  if (directEditMode) return;
                   setSelectedId(row.id);
                   setDetailViewOpen(true);
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+                  if (!directEditMode && event.key === 'Enter') {
                     setSelectedId(row.id);
                     setDetailViewOpen(true);
                   }
@@ -665,30 +736,45 @@ export function ChildrenRosterPage({
                 tabIndex={0}
               >
                 <td className="number-col">{index + 1}</td>
-                <td className="name-cell sticky-col">{row.name}</td>
-                <td>{value(row.gender)}</td>
-                <td>{value(row.phone)}</td>
-                <td>{value(row.residentNo)}</td>
-                <td>{value(row.birthDate)}</td>
+                <td className="name-cell sticky-col">{directEditMode ? renderDirectEditInput(row, 'name') : row.name}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'gender', ['', '남', '여']) : value(row.gender)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'phone') : value(row.phone)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'residentNo') : value(row.residentNo)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'birthDate') : value(row.birthDate)}</td>
                 <td>{ageOf(row)}</td>
-                <td>{value(row.school)}</td>
-                <td>{value(row.grade)}</td>
-                <td>{value(row.joinedAt)}</td>
-                <td className="long-cell">{value(row.address)}</td>
-                <td><span className="pill greenish">{value(row.useType || row.vulnerableType)}</span></td>
-                <td>{value(row.incomeLevel)}</td>
-                <td>{value(row.guardianName)}</td>
-                <td>{value(row.guardianRelation)}</td>
-                <td><span className="pill blue">{value(row.familyType)}</span></td>
-                <td>{value(row.guardianContact)}</td>
-                <td className="long-cell">{value(row.memo)}</td>
-                <td><span className="pill amber">{value(row.manager)}</span></td>
-                <td>{value(row.kidsId || row.id)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'school') : value(row.school)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'grade') : value(row.grade)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'joinedAt') : value(row.joinedAt)}</td>
+                <td className="long-cell">{directEditMode ? renderDirectEditInput(row, 'address') : value(row.address)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'useType') : <span className="pill greenish">{value(row.useType || row.vulnerableType)}</span>}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'incomeLevel') : value(row.incomeLevel)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'guardianName') : value(row.guardianName)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'guardianRelation') : value(row.guardianRelation)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'familyType') : <span className="pill blue">{value(row.familyType)}</span>}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'guardianContact') : value(row.guardianContact)}</td>
+                <td className="long-cell">{directEditMode ? renderDirectEditInput(row, 'memo') : value(row.memo)}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'manager') : <span className="pill amber">{value(row.manager)}</span>}</td>
+                <td>{directEditMode ? renderDirectEditInput(row, 'kidsId') : value(row.kidsId || row.id)}</td>
+                {directEditMode && (
+                  <td className="direct-edit-action-col">
+                    <button
+                      className="action-button small"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void saveDirectEditRow(row);
+                      }}
+                      disabled={savingDirectEditId === row.id}
+                    >
+                      {savingDirectEditId === row.id ? '저장 중' : '저장'}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
             {!filteredRows.length && (
               <tr>
-                <td colSpan={20} className="empty-row">조건에 맞는 아동이 없습니다.</td>
+                <td colSpan={directEditMode ? 21 : 20} className="empty-row">조건에 맞는 아동이 없습니다.</td>
               </tr>
             )}
           </tbody>
