@@ -33,3 +33,14 @@ If the conversation becomes long, context feels fuzzy, the same bug has been rev
 - Next recommended action
 
 Keep the project memory durable in files, not only in chat.
+
+## Semble Search
+
+This repository now has an optional Semble workflow for semantic code search.
+
+- Install locally with `desktop-app/scripts/install-semble.ps1`
+- Run through `desktop-app/scripts/semble.ps1`
+- Use Semble first for broad behavioral or architectural questions across large files
+- Keep using `rg` for exact literal matches or exhaustive symbol confirmation
+
+Reference notes live in `desktop-app/docs/semble-integration.md`.

@@ -41,6 +41,11 @@ Long conversations can make the assistant lose precision. When a thread gets lon
   - `desktop-app/src/data/sheetSync.ts`
   - `desktop-app/src/data/journalTemplates.ts`
   - `desktop-app/src/data/hwpxExport.ts`
+- Semble semantic code search is prepared for this repo:
+  - install script: `desktop-app/scripts/install-semble.ps1`
+  - wrapper: `desktop-app/scripts/semble.ps1`
+  - notes: `desktop-app/docs/semble-integration.md`
+  - use it for broad semantic search across large files; keep `rg` for exact string checks
 
 ## RHWP Table Work: Do Not Lose This
 

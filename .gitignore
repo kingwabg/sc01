@@ -12,6 +12,7 @@ desktop-app/*.log
 
 # Local backups and scratch data
 _backups/
+.tools/
 *.tmp
 *.bak
 
