@@ -2,6 +2,8 @@
 
 This repository is a long-running Seochang operations project. Before making changes, read `PROJECT_MEMORY.md` first, then open any referenced task-specific docs.
 
+For new feature-phase threads, also read `MASTER_THREAD_BRIEF.md`.
+
 On a fresh thread, run the bootstrap check before substantial work:
 
 ```powershell

@@ -90,7 +90,7 @@ Recommend a new thread when any of these happen:
 
 ## Fresh Thread Startup
 
-When a new thread starts, read `AGENTS.md` and this file first. Then run:
+When a new thread starts, read `AGENTS.md`, this file, and `MASTER_THREAD_BRIEF.md` first. Then run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\desktop-app\scripts\bootstrap-check.ps1
