@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { Child, ChildAttendanceEntry, DashboardSnapshot } from '../../types';
+import { useEffect, useMemo, useState } from 'react';
+import type { Child, ChildAttendanceEntry, ChildYearRecord, DashboardSnapshot } from '../../types';
 import { deleteChildAttendanceEntry, saveChildAttendanceEntries } from '../../data/dataProvider';
 import { yearOptions } from '../../app/navigation';
 import { safeRows } from '../../shared/lib/arrays';
@@ -57,6 +57,16 @@ function isActiveChildInRange(child: Child, start: string, end: string) {
   const leftAt = child.leftAt || end;
   return joinedAt <= end && leftAt >= start && child.status !== '퇴소';
 }
+
+function mergeChildForYear(child: Child, record?: ChildYearRecord): Child {
+  if (!record) return child;
+  return {
+    ...child,
+    ...record,
+    id: child.id
+  };
+}
+
 export function ChildAttendancePage({
   snapshot,
   onSaved
@@ -64,19 +74,29 @@ export function ChildAttendancePage({
   snapshot: DashboardSnapshot;
   onSaved: (message: string) => void;
 }) {
-  const children = safeRows(snapshot.children);
+  const baseChildren = safeRows(snapshot.children);
   const childAttendance = safeRows(snapshot.childAttendance);
+  const childYearRecords = safeRows(snapshot.childYearRecords);
   const availableYears = Array.from(
     new Set([
       ...yearOptions,
       ...childAttendance.map((entry) => Number(entry.date.slice(0, 4))).filter(Boolean),
-      ...children.map((child) => Number(child.joinedAt.slice(0, 4))).filter(Boolean)
+      ...baseChildren.map((child) => Number(child.joinedAt.slice(0, 4))).filter(Boolean),
+      ...childYearRecords.map((record) => record.year).filter(Boolean)
     ])
   ).sort();
   const [selectedYear, setSelectedYear] = useState(availableYears[availableYears.length - 1] || new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const todayKey = formatDateKey(new Date());
   const range = getPeriodRange(selectedYear, selectedMonth);
+  const yearRecordMap = useMemo(
+    () => new Map(childYearRecords.map((record) => [`${record.childId}:${record.year}`, record])),
+    [childYearRecords]
+  );
+  const children = useMemo(
+    () => baseChildren.map((child) => mergeChildForYear(child, yearRecordMap.get(`${child.id}:${selectedYear}`))),
+    [baseChildren, selectedYear, yearRecordMap]
+  );
   const activeChildren = children.filter((child) => isActiveChildInRange(child, range.start, range.end));
   const monthEntries = childAttendance.filter((entry) => dateInRange(entry.date, range.start, range.end));
   const dates = Array.from({ length: getMonthEnd(selectedYear, selectedMonth) }, (_, index) => `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`);
