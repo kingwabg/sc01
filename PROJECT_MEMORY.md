@@ -43,6 +43,7 @@ Long conversations can make the assistant lose precision. When a thread gets lon
   - `desktop-app/src/data/hwpxExport.ts`
 - Semble semantic code search is prepared for this repo:
   - install script: `desktop-app/scripts/install-semble.ps1`
+  - Codex MCP install script: `desktop-app/scripts/install-semble-codex-mcp.ps1`
   - wrapper: `desktop-app/scripts/semble.ps1`
   - notes: `desktop-app/docs/semble-integration.md`
   - use it for broad semantic search across large files; keep `rg` for exact string checks

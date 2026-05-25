@@ -146,3 +146,20 @@ Source:
 - [Semble GitHub repository](https://github.com/MinishLab/semble)
 
 For this repo specifically, the local wrapper at `desktop-app/scripts/semble_runner.py` can also be used as the command target if you prefer a workspace-local install instead of `uvx`.
+
+## Project Helper For Codex MCP
+
+This repo also includes an automation script that installs a shared Semble copy for Codex and updates `~/.codex/config.toml`:
+
+```powershell
+& .\desktop-app\scripts\install-semble-codex-mcp.ps1
+```
+
+What it does:
+
+- installs `semble[mcp]` into `C:\Users\<you>\Documents\Codex\shared-tools\semble`
+- writes a small launcher script there
+- backs up your Codex config to `~/.codex/config.toml.bak-semble`
+- adds or replaces the `[mcp_servers.semble]` block in `~/.codex/config.toml`
+
+After running it, restart Codex or start a fresh session so the new MCP server is picked up.

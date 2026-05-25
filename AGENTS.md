@@ -39,6 +39,7 @@ Keep the project memory durable in files, not only in chat.
 This repository now has an optional Semble workflow for semantic code search.
 
 - Install locally with `desktop-app/scripts/install-semble.ps1`
+- Install shared Codex MCP integration with `desktop-app/scripts/install-semble-codex-mcp.ps1`
 - Run through `desktop-app/scripts/semble.ps1`
 - Use Semble first for broad behavioral or architectural questions across large files
 - Keep using `rg` for exact literal matches or exhaustive symbol confirmation
