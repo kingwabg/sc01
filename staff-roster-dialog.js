@@ -189,12 +189,15 @@ function showStaffRosterDialogByType_(dashboardType) {
       dashboardType: normalizedType,
     };
   } catch (error) {
-    showSpreadsheetAlertSafely_(dialogTitle + '을 열지 못했습니다.\n' + error.message);
+    const errorMessage = error && error.message ? error.message : String(error);
+    if (!/script\.container\.ui|showModalDialog/i.test(errorMessage)) {
+      showSpreadsheetAlertSafely_(dialogTitle + '을 열지 못했습니다.\n' + errorMessage);
+    }
     return {
       ok: false,
       mode: 'headless',
       dashboardType: normalizedType,
-      error: error.message,
+      error: errorMessage,
       shellData: getStaffRosterDialogShellData(normalizedType),
     };
   }
