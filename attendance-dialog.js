@@ -2,14 +2,37 @@ const ATTENDANCE_DIALOG_PAYLOAD_VERSION = 'summary-v3';
 const ATTENDANCE_DIALOG_DEFAULT_YEAR = 2026;
 
 function showAttendanceStatsDialog() {
+  requireSpreadsheetContainerUiScope_();
+  const ui = getSpreadsheetUiSafely_();
+
+  if (!ui || typeof ui.showModalDialog !== 'function') {
+    return {
+      ok: false,
+      mode: 'headless',
+      message: '출석 통계 보기는 스프레드시트 UI에서만 열 수 있습니다.',
+    };
+  }
+
   try {
     const htmlOutput = HtmlService.createHtmlOutputFromFile('attendance-dialog-view')
       .setWidth(2400)
       .setHeight(1500);
 
-    SpreadsheetApp.getUi().showModalDialog(htmlOutput, '출석 통계 보기');
+    ui.showModalDialog(htmlOutput, '출석 통계 보기');
+    return {
+      ok: true,
+      mode: 'modal',
+    };
   } catch (error) {
-    SpreadsheetApp.getUi().alert('출석 통계 보기를 열지 못했습니다.\n' + error.message);
+    const errorMessage = error && error.message ? error.message : String(error);
+    if (!isSpreadsheetContainerUiScopeError_(error)) {
+      showSpreadsheetAlertSafely_('출석 통계 보기를 열지 못했습니다.\n' + errorMessage);
+    }
+    return {
+      ok: false,
+      mode: 'headless',
+      error: errorMessage,
+    };
   }
 }
 

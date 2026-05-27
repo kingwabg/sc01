@@ -4,6 +4,18 @@ const STAFF_ROSTER_DROPDOWN_OPTIONS_PROPERTY_KEY = 'staff_roster_dropdown_option
 const STAFF_ROSTER_DIALOG_CACHE_VERSION = 'staff-roster-dialog-cache-v3';
 const STAFF_ROSTER_DIALOG_CACHE_TTL_SECONDS = 900;
 const STAFF_ROSTER_DIALOG_CACHE_CHUNK_SIZE = 85000;
+const SPREADSHEET_CONTAINER_UI_SCOPE_ = 'https://www.googleapis.com/auth/script.container.ui';
+
+function requireSpreadsheetContainerUiScope_() {
+  if (typeof ScriptApp !== 'undefined' && ScriptApp.requireScopes && ScriptApp.AuthMode) {
+    ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [SPREADSHEET_CONTAINER_UI_SCOPE_]);
+  }
+}
+
+function isSpreadsheetContainerUiScopeError_(error) {
+  const errorMessage = error && error.message ? error.message : String(error || '');
+  return /script\.container\.ui|showModalDialog|showModelessDialog|showSidebar/i.test(errorMessage);
+}
 
 function getSpreadsheetUiSafely_() {
   try {
@@ -154,16 +166,17 @@ function clearStaffRosterDialogCachesForCurrentUser_(selectedYear) {
 }
 
 function showStaffRosterDialog() {
-  showStaffRosterDialogByType_('staff');
+  return showStaffRosterDialogByType_('staff');
 }
 
 function showNonStaffRosterDialog() {
-  showStaffRosterDialogByType_('nonstaff');
+  return showStaffRosterDialogByType_('nonstaff');
 }
 
 function showStaffRosterDialogByType_(dashboardType) {
   const normalizedType = normalizeStaffRosterDashboardType_(dashboardType);
   const dialogTitle = '종사자 / 비종사자 현황';
+  requireSpreadsheetContainerUiScope_();
   const ui = getSpreadsheetUiSafely_();
 
   if (!ui || typeof ui.showModalDialog !== 'function') {
@@ -190,7 +203,7 @@ function showStaffRosterDialogByType_(dashboardType) {
     };
   } catch (error) {
     const errorMessage = error && error.message ? error.message : String(error);
-    if (!/script\.container\.ui|showModalDialog/i.test(errorMessage)) {
+    if (!isSpreadsheetContainerUiScopeError_(error)) {
       showSpreadsheetAlertSafely_(dialogTitle + '을 열지 못했습니다.\n' + errorMessage);
     }
     return {
