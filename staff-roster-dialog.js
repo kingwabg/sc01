@@ -5,6 +5,26 @@ const STAFF_ROSTER_DIALOG_CACHE_VERSION = 'staff-roster-dialog-cache-v3';
 const STAFF_ROSTER_DIALOG_CACHE_TTL_SECONDS = 900;
 const STAFF_ROSTER_DIALOG_CACHE_CHUNK_SIZE = 85000;
 
+function getSpreadsheetUiSafely_() {
+  try {
+    return SpreadsheetApp.getUi();
+  } catch (error) {
+    return null;
+  }
+}
+
+function showSpreadsheetAlertSafely_(message) {
+  try {
+    const ui = getSpreadsheetUiSafely_();
+    if (ui && ui.alert) {
+      ui.alert(String(message || '').trim());
+      return;
+    }
+  } catch (error) {
+    // ignore: avoid masking original error in non-UI contexts
+  }
+}
+
 function normalizeStaffRosterDashboardType_(dashboardType) {
   return String(dashboardType || '').trim().toLowerCase() === 'nonstaff' ? 'nonstaff' : 'staff';
 }
@@ -144,15 +164,39 @@ function showNonStaffRosterDialog() {
 function showStaffRosterDialogByType_(dashboardType) {
   const normalizedType = normalizeStaffRosterDashboardType_(dashboardType);
   const dialogTitle = '종사자 / 비종사자 현황';
+  const ui = getSpreadsheetUiSafely_();
+
+  if (!ui || typeof ui.showModalDialog !== 'function') {
+    return {
+      ok: false,
+      mode: 'headless',
+      dashboardType: normalizedType,
+      message: '종사자 / 비종사자 현황은 스프레드시트 UI에서만 열 수 있습니다.',
+      shellData: getStaffRosterDialogShellData(normalizedType),
+    };
+  }
+
   try {
     const template = HtmlService.createTemplateFromFile('staff-roster-view');
     template.dashboardType = normalizedType;
     const htmlOutput = template.evaluate()
       .setWidth(2400)
       .setHeight(1500);
-    SpreadsheetApp.getUi().showModalDialog(htmlOutput, dialogTitle);
+    ui.showModalDialog(htmlOutput, dialogTitle);
+    return {
+      ok: true,
+      mode: 'modal',
+      dashboardType: normalizedType,
+    };
   } catch (error) {
-    SpreadsheetApp.getUi().alert(dialogTitle + '을 열지 못했습니다.\n' + error.message);
+    showSpreadsheetAlertSafely_(dialogTitle + '을 열지 못했습니다.\n' + error.message);
+    return {
+      ok: false,
+      mode: 'headless',
+      dashboardType: normalizedType,
+      error: error.message,
+      shellData: getStaffRosterDialogShellData(normalizedType),
+    };
   }
 }
 
